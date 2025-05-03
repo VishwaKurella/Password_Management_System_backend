@@ -1,0 +1,21 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4"
+uuid = {version="^1",features=["v4"]}
+serde = {version="^1", features = ["derive"]}
+aws-config = "^0.8"
+aws-sdk-dynamodb = "^0.8"
+env_logger = "0.8"
+log = "^0.4"
+strum_macros = "^0.24"
+strum = {version = "^0.24", features = ["derive"]}
+futures = "0.3.28"
+tokio = {version = "1.32.0", features = ["full"]}
+rand = "0.9.0"
+chrono = "0.4.40"
+mongodb= "3.2.3"
+dotenv = "0.15.0"
