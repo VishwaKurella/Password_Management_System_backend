@@ -10,3 +10,16 @@ pub struct Entries {
     created_at: DateTime,
     updated_at: DateTime,
 }
+
+impl Entries {
+    pub fn new(user_id: ObjectId, data: String, nonce: String,) -> Self {
+        Self{
+            _id: ObjectId::new(),
+            user_id,
+            data,
+            nonce,
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        }
+    }
+}
