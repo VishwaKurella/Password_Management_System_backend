@@ -1,10 +1,12 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 use actix_web::cookie::{Cookie, SameSite};
+use actix_web::web::Json;
 use crate::models::{users::{UserSignUpForm, User}};
 use crate::models::users::{UserSignInForm, UserSignUpGitHubForm};
 use crate::services::database::Database;
 use crate::services::jwt::generate_jwt;
 use bcrypt::verify;
+use crate::models::otp::{OtpVerificationRequest};
 use crate::models::response::{AuthResponseError, AuthResponseSuccess};
 
 #[post("/api/auth/signup")]
@@ -192,3 +194,10 @@ pub async fn authenticate(
         }
     }
 }
+
+
+#[post("/api/auth/otp")]
+pub async fn otp_validate(db: web::Data<Database>, user: Json<OtpVerificationRequest>)-> impl Responder {
+
+}
+

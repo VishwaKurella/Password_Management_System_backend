@@ -3,11 +3,13 @@ use mongodb::bson::{oid::ObjectId,doc,to_document};
 use mongodb::error::Error;
 use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use crate::models::{users::User, entries::Entries};
+use crate::models::otp::Otp;
 use crate::models::users::UserSignUpForm;
 
 pub struct Database {
     users: Collection<User>,
     entries: Collection<Entries>,
+    otp: Collection<Otp>,
 }
 
 impl Database {
@@ -75,4 +77,6 @@ impl Database {
         let result = self.entries.update_one(doc!{"_id": entries_id},doc!{"$set": entries_document}).await;
         result
     }
+
+    pub async fn
 }
