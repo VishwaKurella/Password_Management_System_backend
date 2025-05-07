@@ -196,8 +196,10 @@ pub async fn authenticate(
 }
 
 
-#[post("/api/auth/otp")]
-pub async fn otp_validate(db: web::Data<Database>, user: Json<OtpVerificationRequest>)-> impl Responder {
+// #[post("/api/auth/otp")]
+// pub async fn otp_validate(db: web::Data<Database>, user: Json<OtpVerificationRequest>)-> impl Responder {
+//
+// }
+//
 
-}
 

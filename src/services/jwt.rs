@@ -4,7 +4,7 @@ use chrono::{Duration, Utc};
 
 pub fn generate_jwt(user_id: &str, secret: &str) -> Result<String, jsonwebtoken::errors::Error> {
     let now = Utc::now().timestamp() as usize;
-    let exp = (Utc::now() + Duration::hours(24)).timestamp() as usize;
+    let exp = (Utc::now() + Duration::hours(1)).timestamp() as usize;
     let jti = uuid::Uuid::new_v4().to_string();
 
     let claims = Claims {
