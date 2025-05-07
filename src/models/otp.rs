@@ -2,13 +2,16 @@ use mongodb::bson::DateTime;
 use mongodb::bson::oid::ObjectId;
 use rand::{rng, Rng};
 use chrono::{Duration, Utc};
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum OtpIssued {
     ForResetPassword,
     ForEmailVerification,
     ForResetMasterKey,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Otp{
     pub _id: ObjectId,
     pub user_id: ObjectId,
@@ -40,14 +43,20 @@ impl Otp {
 
 
 
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OtpVerificationRequest{
     pub _id: ObjectId,
     pub secret: String,
 
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OtpGenerationSuccess{
+    pub success: bool,
+    pub _id: ObjectId,
+}
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OtpVerificationResponse{
     pub success: bool,
     pub message: String,

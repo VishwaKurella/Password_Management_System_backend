@@ -1,12 +1,12 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 use actix_web::cookie::{Cookie, SameSite};
-use actix_web::web::Json;
+use actix_web::web::{Data, Json};
 use crate::models::{users::{UserSignUpForm, User}};
-use crate::models::users::{UserSignInForm, UserSignUpGitHubForm};
+use crate::models::users::{UserSignInForm, UserSignUpGitHubForm, UsersForgetPassword};
 use crate::services::database::Database;
 use crate::services::jwt::generate_jwt;
 use bcrypt::verify;
-use crate::models::otp::{OtpVerificationRequest};
+use crate::models::otp::{Otp, OtpGenerationSuccess, OtpIssued, OtpVerificationRequest};
 use crate::models::response::{AuthResponseError, AuthResponseSuccess};
 
 #[post("/api/auth/signup")]
@@ -202,4 +202,40 @@ pub async fn authenticate(
 // }
 //
 
+#[post("/api/auth/forgot_password")]
+pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>)->impl Responder {
+    let user = match db.get_user_by_email(email.email.clone()).await {
+        Ok(Some(user)) => {
+            user
+        },
+        Ok(None) => {
+            return HttpResponse::InternalServerError().json(AuthResponseError {
+                success: false,
+                message: "User doesn't exist".to_string(),
+            })
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(AuthResponseError {
+                success: false,
+                message: "Server error, failed to find user".to_string(),
+            })
+        }
+    };
+    let _id = user._id.clone();
+    let otp = Otp::new(OtpIssued::ForResetPassword,_id).await;
+    match db.create_otp(otp).await {
+        Ok(_) => {
+            return HttpResponse::Ok().json(OtpGenerationSuccess {
+                success: true,
+                _id
+            })
+        },
+        Err(_) => {
+            return HttpResponse::InternalServerError().json(AuthResponseError {
+                success: false,
+                message: "Server error, please try again".to_string(),
+            })
+        }
+    }
+}
 

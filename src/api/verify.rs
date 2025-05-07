@@ -5,6 +5,8 @@ use crate::services::database::Database;
 
 
 
+
+
 #[post("api/otp/verify")]
 pub async fn verify_otp(db:Data<Database>,otp: Json<OtpVerificationRequest>) -> impl Responder {
     let otp = otp.into_inner();

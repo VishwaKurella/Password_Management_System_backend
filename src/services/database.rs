@@ -3,7 +3,7 @@ use mongodb::bson::{oid::ObjectId,doc,to_document};
 use mongodb::error::Error;
 use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use crate::models::{users::User, entries::Entries};
-use crate::models::otp::Otp;
+use crate::models::otp::{Otp, OtpIssued};
 use crate::models::users::{UserSignUpForm, UserUpdateForm};
 
 pub struct Database {
@@ -97,7 +97,8 @@ impl Database {
         result
     }
 
-    pub async fn create_otp(&self, user_id: ObjectId) -> Result<InsertOneResult, Error> {
-
+    pub async fn create_otp(&self, otp: Otp) -> Result<InsertOneResult, Error> {
+        let result = self.otps.insert_one(otp).await;
+        result
     }
 }

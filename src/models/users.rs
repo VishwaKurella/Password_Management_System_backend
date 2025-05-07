@@ -116,3 +116,7 @@ pub struct UserUpdateForm{
     pub email: String,
 }
 
+pub struct UsersForgetPassword {
+    pub email: String,
+}
+
