@@ -101,4 +101,9 @@ impl Database {
         let result = self.otps.insert_one(otp).await;
         result
     }
+
+    pub async fn get_otp_by_id(&self, otp_id: ObjectId) -> Result<Option<Otp>, Error> {
+        let result = self.otps.find_one(doc!{"_id": otp_id}).await;
+        result
+    }
 }

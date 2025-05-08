@@ -1,6 +1,8 @@
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::cookie::Cookie;
+use jsonwebtoken::errors::ErrorKind::Json;
 use crate::models::response::AuthResponseError;
+use crate::models::users::UserServiceResponse;
 use crate::services::database::Database;
 use crate::services::jwt::{validate_jwt};
 
@@ -48,3 +50,18 @@ use crate::services::jwt::{validate_jwt};
 //         user,
 //     })
 // }
+
+#[get("/api/request")]
+async fn get_entries(database: web::Data<Database>, req: HttpRequest) -> impl Responder {
+    match req.cookie("auth_token") {
+        Some(cookie) => {
+
+        },
+        None => {
+            return HttpResponse::Unauthorized().json(UserServiceResponse{
+                success: false,
+                message: "Unauthorosed. Please sign in".to_string()
+            })
+        }
+    }
+}

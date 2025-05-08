@@ -115,8 +115,27 @@ pub struct UserUpdateForm{
     pub name: String,
     pub email: String,
 }
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UsersForgetPassword {
     pub email: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserResetPassword {
+    pub _id: ObjectId,
+    pub password: String
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserServiceIdQuery {
+    pub _id: ObjectId,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserServiceResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+pub struct UserResetMasterKeyRequest {
+    pub _id: ObjectId,
+    pub master_key: String,
+}

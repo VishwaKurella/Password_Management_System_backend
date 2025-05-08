@@ -9,6 +9,7 @@ pub enum OtpIssued {
     ForResetPassword,
     ForEmailVerification,
     ForResetMasterKey,
+    Invalid
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -39,6 +40,18 @@ impl Otp {
         let otp: u32 = rng.random_range(0..1_000_000);
         format!("{:06}", otp)
     }
+
+    pub fn is_expired(&self) -> bool {
+        DateTime::now() > self.expires
+    }
+
+    pub fn verify_secret(&self, input_secret: String) -> bool {
+        !self.is_expired() && self.secret == input_secret
+    }
+
+    pub fn is_verified(&self) -> bool {
+        self.verified
+    }
 }
 
 
@@ -47,7 +60,6 @@ impl Otp {
 pub struct OtpVerificationRequest{
     pub _id: ObjectId,
     pub secret: String,
-
 }
 
 #[derive(Serialize, Deserialize, Debug)]
