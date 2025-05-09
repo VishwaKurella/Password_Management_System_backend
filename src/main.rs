@@ -7,13 +7,14 @@ use env_logger::Env;
 use crate::services::{database::Database};
 use crate::api::{auth::{create_user, signin, authenticate}};
 use actix_governor::{Governor, GovernorConfigBuilder};
+use dotenv::dotenv;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(Env::default().default_filter_or("debug"));
+    dotenv().ok();
     let db = Database::init().await;
     let data = web::Data::new(db);
-    let jwt_secret = dotenv::var("JWT_SECRET").expect("DATABASE_URL must be set");
+    let jwt_secret = dotenv::var("JWT_SECRET").expect("JWT Secret must be set");
     let auth_limiter_cfg = GovernorConfigBuilder::default()
         .requests_per_second(1)
         .burst_size(10)

@@ -5,6 +5,7 @@ use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use crate::models::{users::User, entries::Entries};
 use crate::models::otp::{Otp, OtpIssued};
 use crate::models::users::{UserSignUpForm, UserUpdateForm};
+use dotenv::dotenv;
 
 pub struct Database {
     users: Collection<User>,
@@ -14,7 +15,8 @@ pub struct Database {
 
 impl Database {
     pub async fn init() -> Self {
-        let uri= dotenv::var("URI").expect("DATABASE_URL must be set");
+        dotenv().ok();
+        let uri= dotenv::var("URI").expect("URI / DATABASE_URL must be set");
         println!("Connecting to {}", uri);
         let client = Client::with_uri_str(uri).await.expect("failed to initialize client");
         let db = client.database("database_rust");
@@ -65,11 +67,21 @@ impl Database {
     }
 
     pub async fn set_user_verified(&self, user_id: ObjectId) -> Result<bool, Error> {
-        let result = self.users.update_one(doc!{"_id": user_id}, doc!{"set": {"verified" : true}}).await?;
+        let result = self.users.update_one(doc!{"_id": user_id}, doc!{"$set": {"verified" : true}}).await?;
+        Ok(result.modified_count > 0)
+    }
+
+    pub async fn update_user_password(&self, user_id: ObjectId, new_password: String) -> Result<UpdateResult, Error> {
+        use bcrypt::{hash, DEFAULT_COST, BcryptError};
+        let hashed_password = hash(new_password, DEFAULT_COST).map_err(|e: BcryptError| {
+            Error::custom(format!("Bcrypt hashing error: {}", e))
+        })?;
+        self.set_password(user_id, hashed_password).await
     }
 
     pub async fn get_user_is_verified(&self, user_id: ObjectId) -> Result<Option<bool>, Error> {
-        match self.users.find_one(doc! { "_id": user_id }, None).await? {
+        let user = self.users.find_one(doc! { "_id": user_id }).await?;
+        match user {
             Some(user) => Ok(Some(user.verified)),
             None => Ok(None),
         }

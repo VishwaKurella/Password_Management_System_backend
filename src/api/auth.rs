@@ -218,9 +218,14 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
     };
 
     let _id = user._id.clone();
-    let otp = Otp::new(OtpIssued::ForResetPassword,_id).await;
+    let otp = Otp::new(OtpIssued::ForResetPassword,_id);
+    let otp_secret = otp.secret.clone();
     match db.create_otp(otp).await {
         Ok(_) => {
+            // Send OTP email
+            if let Err(e) = crate::services::email::send_email(&user.email, &otp_secret).await {
+                eprintln!("Failed to send OTP email: {}", e);
+            }
             return HttpResponse::Ok().json(OtpGenerationSuccess {
                 success: true,
                 _id
@@ -239,22 +244,47 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
 pub async fn reset_password(db: Data<Database>, user_form: Json<UserResetPassword>) -> impl Responder {
     let user_form = user_form.into_inner();
     let otp = match db.get_otp_by_id(user_form._id).await {
-        Ok(Some(otp)) => {
-            otp
-        },
+        Ok(Some(otp)) => otp,
         Ok(None) => {
             return HttpResponse::Unauthorized().json(AuthResponseError {
                 success: false,
                 message: "User doesn't have permission to reset password".to_string(),
-            })
-        },
+            });
+        }
         Err(_) => {
             return HttpResponse::InternalServerError().json(AuthResponseError {
                 success: false,
                 message: "Server error, failed to reset password".to_string(),
-            })
+            });
         }
     };
+
+    if !otp.verify_secret(user_form.secret.clone()) {
+        return HttpResponse::Unauthorized().json(AuthResponseError {
+            success: false,
+            message: "Invalid OTP secret".to_string(),
+        });
+    }
+
+    if otp.is_expired() {
+        return HttpResponse::Unauthorized().json(AuthResponseError {
+            success: false,
+            message: "OTP expired".to_string(),
+        });
+    }
+
+    if let Err(_) = db.update_user_password(otp.user_id, user_form.password).await {
+        return HttpResponse::InternalServerError().json(AuthResponseError {
+            success: false,
+            message: "Failed to update password".to_string(),
+        });
+    }
+
+    HttpResponse::Ok().json(AuthResponseSuccess {
+        success: true,
+        message: "Password reset successfully".to_string(),
+        new_user: false,
+    })
 }
 
 #[post("/api/auth/reset_master_key")]

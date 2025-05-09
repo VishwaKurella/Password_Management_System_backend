@@ -57,14 +57,19 @@ async fn verify_path(db:Data<Database>, service: Path<String>, service_id: Query
                         return HttpResponse::Ok().json(UserServiceResponse{
                             success: true,
                             message: "Authorized".to_string(),
-                        })
+                        });
+                    } else {
+                        return HttpResponse::Unauthorized().json(UserServiceResponse {
+                            success: false,
+                            message: "OTP not verified".to_string()
+                        });
                     }
                 }
                 None => {
-                    HttpResponse::Unauthorized().json(UserServiceResponse {
+                    return HttpResponse::Unauthorized().json(UserServiceResponse {
                         success: false,
                         message: "Session expired, try again".to_string()
-                    })
+                    });
                 }
             }
         }
@@ -72,7 +77,7 @@ async fn verify_path(db:Data<Database>, service: Path<String>, service_id: Query
             return HttpResponse::InternalServerError().json(UserServiceResponse {
                 success: false,
                 message: "Server Error, Please try again".to_string()
-            })
+            });
         }
     }
 }
@@ -85,20 +90,19 @@ async fn verify_me(db: Data<Database>, jwt_secret: Data<String>, req: HttpReques
             let auth_token = cookie.value().to_string();
 
             match validate_jwt(&auth_token, &jwt_secret) {
-                Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
+                Ok(_) => return HttpResponse::Ok().json(UserServiceResponse {
                     success: true,
                     message: "Token is valid.".to_string(),
                 }),
-                Err(_) => HttpResponse::Unauthorized().json(UserServiceResponse {
+                Err(_) => return HttpResponse::Unauthorized().json(UserServiceResponse {
                     success: false,
                     message: "Session expired or token is invalid.".to_string(),
                 }),
             }
         },
-        None => HttpResponse::Unauthorized().json(UserServiceResponse {
+        None => return HttpResponse::Unauthorized().json(UserServiceResponse {
             success: false,
             message: "No auth token found.".to_string(),
         }),
     }
-
 }

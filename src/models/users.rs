@@ -64,18 +64,19 @@ impl User {
         }
     }
 
-    // pub fn new_oauth(name: String, email: String ) -> Self {
-    //     Self{
-    //         _id: ObjectId::new(),
-    //         name,
-    //         email,
-    //         password_hash: None,
-    //         oauth: true,
-    //         master_key: String::new(),
-    //         created_at: DateTime::now(),
-    //         updated_at: DateTime::now(),
-    //     }
-    // }
+    pub fn new_oauth(name: String, email: String ) -> Self {
+        Self{
+            _id: ObjectId::new(),
+            name,
+            email,
+            password_hash: None,
+            oauth: true,
+            verified: true,
+            master_key: String::new(),
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        }
+    }
 
     fn generate_salt() -> [u8; 16] {
         let mut rng = rng();
@@ -123,7 +124,8 @@ pub struct UsersForgetPassword {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserResetPassword {
     pub _id: ObjectId,
-    pub password: String
+    pub password: String,
+    pub secret: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserServiceIdQuery {
@@ -135,6 +137,7 @@ pub struct UserServiceResponse {
     pub message: String,
 }
 
+#[derive(serde::Deserialize)]
 pub struct UserResetMasterKeyRequest {
     pub _id: ObjectId,
     pub master_key: String,

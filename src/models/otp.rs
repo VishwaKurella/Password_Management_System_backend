@@ -1,8 +1,8 @@
-use mongodb::bson::DateTime;
-use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{DateTime, oid::ObjectId};
 use rand::{rng, Rng};
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum OtpIssued {
@@ -25,7 +25,7 @@ pub struct Otp{
 impl Otp {
     pub fn new(issued_for: OtpIssued, user_id: ObjectId) -> Self {
         let secret = Self::generate_secret();
-        let expires = DateTime::from(Utc::now() + Duration::minutes(6));
+        let expires = DateTime::from_system_time(SystemTime::now() + std::time::Duration::from_secs(6 * 60));
         Self{
             _id: ObjectId::new(),
             user_id,
@@ -53,8 +53,6 @@ impl Otp {
         self.verified
     }
 }
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OtpVerificationRequest{
