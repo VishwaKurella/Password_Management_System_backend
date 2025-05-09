@@ -1,8 +1,11 @@
+use futures::TryStreamExt;
 use mongodb::{Collection, Client};
 use mongodb::bson::{oid::ObjectId,doc,to_document};
 use mongodb::error::Error;
+use mongodb::options::FindOptions;
 use mongodb::results::{DeleteResult, InsertOneResult, UpdateResult};
 use crate::models::{users::User, entries::Entries};
+use crate::models::entries::ReducedEntries;
 use crate::models::otp::{Otp, OtpIssued};
 use crate::models::users::{UserSignUpForm, UserUpdateForm};
 
@@ -64,12 +67,13 @@ impl Database {
         Ok(result)
     }
 
-    pub async fn set_user_verified(&self, user_id: ObjectId) -> Result<bool, Error> {
+    pub async fn set_user_verified(&self, user_id: ObjectId) -> Result<UpdateResult, Error> {
         let result = self.users.update_one(doc!{"_id": user_id}, doc!{"set": {"verified" : true}}).await?;
+        Ok(result)
     }
 
     pub async fn get_user_is_verified(&self, user_id: ObjectId) -> Result<Option<bool>, Error> {
-        match self.users.find_one(doc! { "_id": user_id }, None).await? {
+        match self.users.find_one(doc! { "_id": user_id }).await? {
             Some(user) => Ok(Some(user.verified)),
             None => Ok(None),
         }
@@ -95,6 +99,19 @@ impl Database {
         entries_document.remove("_id");
         let result = self.entries.update_one(doc!{"_id": entries_id},doc!{"$set": entries_document}).await;
         result
+    }
+
+    pub async fn get_entries_by_user_id(&self, user_id: ObjectId) -> Result<Vec<ReducedEntries>, Error> {
+        let result = self.entries.find(doc! {"user_id": user_id}).await?;
+        let entries = result.try_collect::<Vec<Entries>>().await?;
+
+        let reduced_entries = entries.into_iter().map(|e| ReducedEntries {
+            _id: e._id,
+            data: e.data,
+            nonce: e.nonce,
+        }).collect();
+
+        Ok(reduced_entries)
     }
 
     pub async fn create_otp(&self, otp: Otp) -> Result<InsertOneResult, Error> {

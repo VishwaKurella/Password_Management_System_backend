@@ -3,10 +3,10 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Entries {
-    _id: ObjectId,
+    pub _id: ObjectId,
     user_id: ObjectId,
-    data: String,
-    nonce: String,
+    pub data: String,
+    pub nonce: String,
     created_at: DateTime,
     updated_at: DateTime,
 }
@@ -22,4 +22,15 @@ impl Entries {
             updated_at: DateTime::now(),
         }
     }
+}
+
+pub struct ReducedEntries {
+    pub _id: ObjectId,
+    pub data: String,
+    pub nonce: String,
+}
+
+pub struct UserEntriesResponse {
+    pub success: bool,
+    pub entries: Option<Vec<ReducedEntries>>,
 }

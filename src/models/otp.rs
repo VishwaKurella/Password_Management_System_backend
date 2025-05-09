@@ -25,7 +25,10 @@ pub struct Otp{
 impl Otp {
     pub fn new(issued_for: OtpIssued, user_id: ObjectId) -> Self {
         let secret = Self::generate_secret();
-        let expires = DateTime::from(Utc::now() + Duration::minutes(6));
+        let chrono_dt = Utc::now() + Duration::minutes(6);
+        let millis = chrono_dt.timestamp_millis();
+        let expires = DateTime::from_millis(millis);
+
         Self{
             _id: ObjectId::new(),
             user_id,

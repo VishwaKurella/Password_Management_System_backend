@@ -77,7 +77,7 @@ impl User {
     //     }
     // }
 
-    fn generate_salt() -> [u8; 16] {
+    pub fn generate_salt() -> [u8; 16] {
         let mut rng = rng();
         let mut salt = [0u8; 16];
         rng.fill_bytes(&mut salt);
@@ -134,8 +134,14 @@ pub struct UserServiceResponse {
     pub success: bool,
     pub message: String,
 }
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UserResetMasterKeyRequest {
     pub _id: ObjectId,
     pub master_key: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserSessionResponse {
+    pub success: bool,
+    pub message: String,
+    pub is_expired: bool,
 }

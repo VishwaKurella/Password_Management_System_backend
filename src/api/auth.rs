@@ -5,7 +5,7 @@ use crate::models::{users::{UserSignUpForm, User}};
 use crate::models::users::{UserResetMasterKeyRequest, UserResetPassword, UserServiceResponse, UserSignInForm, UserSignUpGitHubForm, UsersForgetPassword};
 use crate::services::database::Database;
 use crate::services::jwt::generate_jwt;
-use bcrypt::verify;
+use bcrypt::{hash_with_salt, verify, DEFAULT_COST};
 use crate::models::otp::{Otp, OtpGenerationSuccess, OtpIssued, OtpVerificationRequest};
 use crate::models::response::{AuthResponseError, AuthResponseSuccess};
 
@@ -24,7 +24,7 @@ pub async fn create_user(
                 Ok(token) => {
                     let cookie = Cookie::build("auth_token", token)
                         .http_only(true)
-                        .secure(true)
+                        .secure(false)
                         .same_site(SameSite::Lax)
                         .path("/")
                         .finish();
@@ -87,7 +87,7 @@ pub async fn signin(
                 Ok(token) => {
                     let cookie = Cookie::build("auth_token", token)
                         .http_only(true)
-                        .secure(true)
+                        .secure(false)
                         .same_site(SameSite::Lax)
                         .path("/")
                         .finish();
@@ -127,7 +127,7 @@ pub async fn authenticate(
                 Ok(token) => {
                     let cookie = Cookie::build("auth_token", token)
                         .http_only(true)
-                        .secure(true)
+                        .secure(false)
                         .same_site(SameSite::Lax)
                         .path("/")
                         .finish();
@@ -148,7 +148,7 @@ pub async fn authenticate(
             }
         }
         Ok(None) => {
-            let new_user = User::new_oauth(user.name, user.email);
+            let new_user = User::new(user.name, user.email,String::new());
             let _id = new_user._id.clone().to_string();
 
             match db.create_user(new_user).await {
@@ -157,7 +157,7 @@ pub async fn authenticate(
                         Ok(token) => {
                             let cookie = Cookie::build("auth_token", token)
                                 .http_only(true)
-                                .secure(true)
+                                .secure(false)
                                 .same_site(SameSite::Lax)
                                 .path("/")
                                 .finish();
@@ -218,7 +218,7 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
     };
 
     let _id = user._id.clone();
-    let otp = Otp::new(OtpIssued::ForResetPassword,_id).await;
+    let otp = Otp::new(OtpIssued::ForResetPassword,_id);
     match db.create_otp(otp).await {
         Ok(_) => {
             return HttpResponse::Ok().json(OtpGenerationSuccess {
@@ -238,55 +238,126 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
 #[post("/api/auth/reset_password")]
 pub async fn reset_password(db: Data<Database>, user_form: Json<UserResetPassword>) -> impl Responder {
     let user_form = user_form.into_inner();
-    let otp = match db.get_otp_by_id(user_form._id).await {
+
+    let otp = match db.get_otp_by_id(user_form._id.clone()).await {
         Ok(Some(otp)) => {
-            otp
-        },
+            if otp.is_verified() {
+                let salt = User::generate_salt();
+                let password_hash = hash_with_salt(&user_form.password, DEFAULT_COST, &salt).unwrap().to_string();
+
+                match db.set_password(user_form._id, password_hash).await {
+                    Ok(_) => {
+                        return HttpResponse::Ok().json(UserServiceResponse {
+                            success: true,
+                            message: "Password reset successfully.".to_string(),
+                        });
+                    }
+                    Err(_) => {
+                        return HttpResponse::InternalServerError().json(UserServiceResponse {
+                            success: false,
+                            message: "Failed to update password in the database.".to_string(),
+                        });
+                    }
+                }
+            } else {
+                return HttpResponse::Unauthorized().json(UserServiceResponse {
+                    success: false,
+                    message: "OTP is not verified.".to_string(),
+                });
+            }
+        }
         Ok(None) => {
             return HttpResponse::Unauthorized().json(AuthResponseError {
                 success: false,
-                message: "User doesn't have permission to reset password".to_string(),
-            })
-        },
+                message: "User doesn't have permission to reset password.".to_string(),
+            });
+        }
         Err(_) => {
             return HttpResponse::InternalServerError().json(AuthResponseError {
                 success: false,
-                message: "Server error, failed to reset password".to_string(),
-            })
+                message: "Server error, failed to reset password.".to_string(),
+            });
         }
     };
 }
 
+
+// #[post("/api/auth/reset_master_key")]
+// pub async fn reset_master_key(db: Data<Database>, user_form: Json<UserResetMasterKeyRequest>) -> impl Responder {
+//     let user_form = user_form.into_inner();
+//     match db.get_otp_by_id(user_form._id).await {
+//         Ok(Some(otp)) => {
+//             if otp.is_verified() {
+//                 match db.set_master_key(otp.user_id,user_form.master_key).await {
+//                     Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
+//                         success: true,
+//                         message: "Master key reset successfully.".to_string(),
+//                     }),
+//                     Err(_) => HttpResponse::InternalServerError().json(UserServiceResponse {
+//                         success: false,
+//                         message: "Failed to update master key.".to_string(),
+//                     }),
+//                 }
+//             }else{
+//                 HttpResponse::Unauthorized().json(UserServiceResponse {
+//                     success: false,
+//                     message: "OTP not verified.".to_string(),
+//                 })
+//             }
+//         },
+//         Ok(None) => HttpResponse::NotFound().json(UserServiceResponse {
+//             success: false,
+//             message: "OTP record not found.".to_string(),
+//         }),
+//         Err(_) => HttpResponse::InternalServerError().json(UserServiceResponse {
+//             success: false,
+//             message: "Database error while retrieving OTP.".to_string(),
+//         }),
+//     }
+// }
+
 #[post("/api/auth/reset_master_key")]
-pub async fn reset_master_key(db: Data<Database>, user_form: Json<UserResetMasterKeyRequest>) -> impl Responder {
+pub async fn reset_master_key(
+    db: Data<Database>,
+    user_form: Json<UserResetMasterKeyRequest>,
+) -> impl Responder {
     let user_form = user_form.into_inner();
+
+    // Retrieve OTP by ID
     match db.get_otp_by_id(user_form._id).await {
         Ok(Some(otp)) => {
             if otp.is_verified() {
-                match db.set_master_key(otp.user_id,user_form.master_key).await {
+                // Attempt to set the master key
+                match db.set_master_key(otp.user_id, user_form.master_key).await {
                     Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
                         success: true,
                         message: "Master key reset successfully.".to_string(),
                     }),
-                    Err(_) => HttpResponse::InternalServerError().json(UserServiceResponse {
-                        success: false,
-                        message: "Failed to update master key.".to_string(),
-                    }),
+                    Err(e) => {
+                        log::error!("Failed to update master key: {}", e);
+                        HttpResponse::InternalServerError().json(UserServiceResponse {
+                            success: false,
+                            message: "Failed to update master key.".to_string(),
+                        })
+                    }
                 }
-            }else{
+            } else {
                 HttpResponse::Unauthorized().json(UserServiceResponse {
                     success: false,
                     message: "OTP not verified.".to_string(),
                 })
             }
-        },
+        }
         Ok(None) => HttpResponse::NotFound().json(UserServiceResponse {
             success: false,
             message: "OTP record not found.".to_string(),
         }),
-        Err(_) => HttpResponse::InternalServerError().json(UserServiceResponse {
-            success: false,
-            message: "Database error while retrieving OTP.".to_string(),
-        }),
+        Err(e) => {
+            log::error!("Database error while retrieving OTP: {}", e);
+            HttpResponse::InternalServerError().json(UserServiceResponse {
+                success: false,
+                message: "Database error while retrieving OTP.".to_string(),
+            })
+        }
     }
 }

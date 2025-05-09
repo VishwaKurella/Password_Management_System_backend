@@ -3,10 +3,12 @@ mod services;
 mod api;
 
 use actix_web::{App, HttpServer, get, Responder, HttpResponse, post, web::Path, web};
+use actix_cors::Cors;
 use env_logger::Env;
 use crate::services::{database::Database};
 use crate::api::{auth::{create_user, signin, authenticate}};
 use actix_governor::{Governor, GovernorConfigBuilder};
+use crate::api::request::user_details;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -22,6 +24,13 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(
+                Cors::default()
+                    .allowed_origin("http://localhost:3000")
+                    .supports_credentials()
+                    .allowed_methods(vec!["POST", "GET", "OPTIONS"])
+                    .allowed_headers(vec![http::header::CONTENT_TYPE])
+            )
             .app_data(data.clone())
             .app_data(web::Data::new(jwt_secret.clone()))
             .wrap(actix_web::middleware::Logger::default())
@@ -29,6 +38,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user)
             .service(signin)
             .service(authenticate)
+            .service(user_details)
             .service(hello)
             .service(hello_name)
     })

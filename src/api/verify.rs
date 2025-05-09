@@ -1,5 +1,4 @@
 use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
-use actix_web::cookie::Cookie;
 use actix_web::web::{Data, Json, Path, Query};
 use crate::models::otp::{OtpIssued, OtpVerificationRequest, OtpVerificationResponse};
 use crate::models::response::AuthResponseError;
@@ -46,36 +45,45 @@ pub async fn verify_otp(db:Data<Database>,user_form: Json<OtpVerificationRequest
 }
 
 #[get("api/verify/allow/{service}")]
-async fn verify_path(db:Data<Database>, service: Path<String>, service_id: Query<UserServiceIdQuery> ) -> impl Responder {
+async fn verify_path(
+    db: Data<Database>,
+    service: Path<String>,
+    service_id: Query<UserServiceIdQuery>
+) -> impl Responder {
     let service = service.into_inner();
     let service_id = service_id.into_inner()._id;
+
     match db.get_otp_by_id(service_id).await {
-        Ok(otp) => {
-            match otp {
-                Some(otp) => {
-                    if otp.is_verified() {
-                        return HttpResponse::Ok().json(UserServiceResponse{
-                            success: true,
-                            message: "Authorized".to_string(),
-                        })
-                    }
-                }
-                None => {
-                    HttpResponse::Unauthorized().json(UserServiceResponse {
+        Ok(otp_opt) => match otp_opt {
+            Some(otp) => {
+                if otp.is_verified() {
+                    return HttpResponse::Ok().json(UserServiceResponse {
+                        success: true,
+                        message: "Authorized".to_string(),
+                    });
+                } else {
+                    return HttpResponse::Unauthorized().json(UserServiceResponse {
                         success: false,
-                        message: "Session expired, try again".to_string()
-                    })
+                        message: "OTP not verified".to_string(),
+                    });
                 }
             }
-        }
+            None => {
+                return HttpResponse::Unauthorized().json(UserServiceResponse {
+                    success: false,
+                    message: "Session expired, try again".to_string(),
+                });
+            }
+        },
         Err(_) => {
             return HttpResponse::InternalServerError().json(UserServiceResponse {
                 success: false,
-                message: "Server Error, Please try again".to_string()
-            })
+                message: "Server error, please try again".to_string(),
+            });
         }
     }
 }
+
 
 
 #[get("/api/verify/me")]
@@ -100,5 +108,4 @@ async fn verify_me(db: Data<Database>, jwt_secret: Data<String>, req: HttpReques
             message: "No auth token found.".to_string(),
         }),
     }
-
 }
