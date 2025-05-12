@@ -1,6 +1,7 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::web::Data;
 use mongodb::bson::{oid::ObjectId};
+use crate::models::response::AuthIssuerResponse;
 use crate::models::users::{UserServiceResponse, UserSessionResponse};
 use crate::services::database::Database;
 use crate::services::jwt::validate_jwt;
@@ -111,5 +112,39 @@ async fn user_details(db: Data<Database>, jwt_secret: Data<String>, req: HttpReq
             message: "Database error while fetching user".into(),
             is_expired: false,
         }),
+    }
+}
+
+#[get("/api/request/issuer")]
+pub async fn get_issuer_from_cookie(req: HttpRequest, jwt_secret: web::Data<String>) -> impl Responder {
+    let token_cookie = req.cookie("auth_token");
+    println!("{:?}",token_cookie);
+    println!("{:?}",token_cookie);
+    if let Some(cookie) = token_cookie {
+        let token = cookie.value();
+
+        match validate_jwt(token, jwt_secret.get_ref()) {
+            Ok(token_data) => {
+                let issuer = token_data.claims.iss;
+                HttpResponse::Ok().json(AuthIssuerResponse {
+                    success: true,
+                    message: "Token validated successfully".to_string(),
+                    issuer,
+                })
+            }
+            Err(e) => {
+                HttpResponse::Unauthorized().json(AuthIssuerResponse {
+                    success: false,
+                    message: "Invalid or expired token".to_string(),
+                    issuer: "null".to_string(),
+                })
+            }
+        }
+    } else {
+        HttpResponse::BadRequest().json(AuthIssuerResponse {
+            success: false,
+            message: "auth_token cookie not found".to_string(),
+            issuer: "null".to_string(),
+        })
     }
 }

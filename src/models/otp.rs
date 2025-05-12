@@ -28,7 +28,6 @@ impl Otp {
         let chrono_dt = Utc::now() + Duration::minutes(6);
         let millis = chrono_dt.timestamp_millis();
         let expires = DateTime::from_millis(millis);
-
         Self{
             _id: ObjectId::new(),
             user_id,

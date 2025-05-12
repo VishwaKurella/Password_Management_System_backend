@@ -8,6 +8,7 @@ use crate::models::{users::User, entries::Entries};
 use crate::models::entries::ReducedEntries;
 use crate::models::otp::{Otp, OtpIssued};
 use crate::models::users::{UserSignUpForm, UserUpdateForm};
+use crate::services::email::send_email;
 
 pub struct Database {
     users: Collection<User>,
@@ -104,13 +105,11 @@ impl Database {
     pub async fn get_entries_by_user_id(&self, user_id: ObjectId) -> Result<Vec<ReducedEntries>, Error> {
         let result = self.entries.find(doc! {"user_id": user_id}).await?;
         let entries = result.try_collect::<Vec<Entries>>().await?;
-
         let reduced_entries = entries.into_iter().map(|e| ReducedEntries {
             _id: e._id,
             data: e.data,
             nonce: e.nonce,
         }).collect();
-
         Ok(reduced_entries)
     }
 
@@ -121,6 +120,16 @@ impl Database {
 
     pub async fn get_otp_by_id(&self, otp_id: ObjectId) -> Result<Option<Otp>, Error> {
         let result = self.otps.find_one(doc!{"_id": otp_id}).await;
+        result
+    }
+
+    pub async fn delete_otp_by_id(&self, user_id: ObjectId) -> Result<DeleteResult, Error> {
+        let result = self.otps.delete_many(doc!{"user_id": user_id}).await;
+        result
+    }
+
+    pub async fn set_otp_verified(&self, otp_id: ObjectId) -> Result<UpdateResult, Error> {
+        let result = self.otps.update_one(doc!{"_id": otp_id}, doc!{"$set": {"verified" : true}}).await;
         result
     }
 }

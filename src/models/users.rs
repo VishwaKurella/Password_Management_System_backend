@@ -83,6 +83,10 @@ impl User {
         rng.fill_bytes(&mut salt);
         salt
     }
+
+    pub fn is_verified(&self) -> bool {
+        self.verified
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -134,6 +138,7 @@ pub struct UserServiceResponse {
     pub success: bool,
     pub message: String,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserResetMasterKeyRequest {
     pub _id: ObjectId,

@@ -1,3 +1,3 @@
 pub mod auth;
 pub mod request;
-mod verify;
+pub mod verify;
