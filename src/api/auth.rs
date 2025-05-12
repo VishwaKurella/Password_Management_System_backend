@@ -130,6 +130,7 @@ pub async fn signin(
         }
         let otp = Otp::new(OtpIssued::ForEmailVerification, user_id.clone());
         let otp_secret = otp.secret.clone();
+        let otp_id = otp._id.clone().to_string();
 
         if let Err(_) = db.create_otp(otp).await {
             return HttpResponse::InternalServerError().json(AuthResponseError {
@@ -140,7 +141,6 @@ pub async fn signin(
 
         let message = format!("Your OTP for email verification is: {}", otp_secret);
         if let Err(e) = send_email(message, user.email.clone()).await {
-            log::error!("Failed to send OTP email: {:?}", e);
             return HttpResponse::InternalServerError().json(AuthResponseError {
                 success: false,
                 message: "Failed to send verification email".to_string(),
@@ -151,6 +151,7 @@ pub async fn signin(
             success: true,
             message: "User is not verified. Verification OTP has been resent.".to_string(),
             is_verified: false,
+            _id: otp_id,
         });
     }
 
@@ -169,6 +170,7 @@ pub async fn signin(
                     success: true,
                     message: "Login successful".to_string(),
                     is_verified: true,
+                    _id: "".to_string(),
                 })
         }
         Err(_) => HttpResponse::InternalServerError().json(AuthResponseError {

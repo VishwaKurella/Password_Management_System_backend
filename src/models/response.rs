@@ -18,6 +18,7 @@ pub struct AuthSignInResponse {
     pub success: bool,
     pub message: String,
     pub is_verified: bool,
+    pub _id: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AuthSignUpResponse {
