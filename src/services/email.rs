@@ -21,7 +21,7 @@ pub async fn send_email(to: String, message: String) -> Result<(), Box<dyn Error
         .to(to.parse().unwrap())
         .subject("Your OTP Code")
         .header(header::ContentType::TEXT_PLAIN)
-        .body(format!("Your OTP code is: {}", message))
+        .body(format!("{}", message))
         .unwrap();
 
     let creds = Credentials::new(smtp_username.clone(), smtp_password);
