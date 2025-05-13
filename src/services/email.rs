@@ -6,8 +6,7 @@ use lettre::{
 use std::error::Error;
 use dotenv::dotenv;
 
-
-pub async fn send_email(message: String, to: String) -> Result<(), Box<dyn Error>> {
+pub async fn send_email(to: String, message: String) -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     let smtp_username = std::env::var("SMTP_USERNAME").expect("SMTP_USERNAME not set");
     let smtp_password = std::env::var("SMTP_PASSWORD").expect("SMTP_PASSWORD not set");
