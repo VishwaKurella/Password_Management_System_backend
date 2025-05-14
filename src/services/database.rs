@@ -128,8 +128,13 @@ impl Database {
         result
     }
 
+    pub async fn delete_otp(&self, otp_id: ObjectId) -> Result<DeleteResult, Error> {
+        let result = self.otps.delete_one(doc!{"_id": otp_id}).await;
+        result
+    }
+
     pub async fn set_otp_verified(&self, otp_id: ObjectId) -> Result<UpdateResult, Error> {
-        let result = self.otps.update_one(doc!{"_id": otp_id}, doc!{"$set": {"verified" : true}}).await;
+        let result = self.otps.update_one(doc!{"_id": otp_id}, doc! { "$set": { "verified": true }}).await;
         result
     }
 }

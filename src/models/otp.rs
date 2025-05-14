@@ -3,6 +3,7 @@ use mongodb::bson::oid::ObjectId;
 use rand::{rng, Rng};
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum OtpIssued {
@@ -10,6 +11,19 @@ pub enum OtpIssued {
     ForEmailVerification,
     ForResetMasterKey,
     Invalid
+}
+
+impl fmt::Display for OtpIssued {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            OtpIssued::ForEmailVerification => "Email Verification",
+            OtpIssued::ForResetPassword => "Password Reset",
+            OtpIssued::ForResetMasterKey => "Master Key Reset",
+            OtpIssued::Invalid => "Invalid",
+
+        };
+        write!(f, "{}", text)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,14 +74,14 @@ impl Otp {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OtpVerificationRequest{
-    pub _id: ObjectId,
+    pub _id: String,
     pub secret: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OtpGenerationSuccess{
     pub success: bool,
-    pub _id: ObjectId,
+    pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

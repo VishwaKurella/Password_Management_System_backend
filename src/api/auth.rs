@@ -49,8 +49,7 @@ pub async fn create_user(
     let otp_id = otp._id.clone().to_string();
     match db.create_otp(otp).await {
         Ok(_) => {
-            let message = format!("Your OTP for email verification is : {}",secret);
-            match send_email(user_email,message).await {
+            match send_email(user_email,secret,&otp_id, OtpIssued::ForEmailVerification).await {
                 Ok(_) => HttpResponse::Ok().json(AuthSignUpResponse {
                     success: true,
                     message: "OTP sent for email verification".to_string(),
@@ -138,9 +137,7 @@ pub async fn signin(
                 message: "Failed to regenerate OTP for unverified user".to_string(),
             });
         }
-
-        let message = format!("Your OTP for email verification is: {}", otp_secret);
-        if let Err(e) = send_email(message, user.email.clone()).await {
+        if let Err(e) = send_email(user.email.clone(),otp_secret,&otp_id,OtpIssued::ForEmailVerification).await {
             return HttpResponse::InternalServerError().json(AuthResponseError {
                 success: false,
                 message: "Failed to send verification email".to_string(),
@@ -298,40 +295,65 @@ pub async fn authenticate(
 pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>)->impl Responder {
     let user_form = email.into_inner();
 
-    let user = match db.get_user_by_email(user_form.email).await {
-        Ok(Some(user)) => {
-            user
-        },
+    let user = match db.get_user_by_email(user_form.email.clone()).await {
+        Ok(Some(user)) => user,
         Ok(None) => {
+            return HttpResponse::NotFound().json(AuthResponseError {
+                success: false,
+                message: "No account found for the provided email.".to_string(),
+            });
+        }
+        Err(err) => {
+            log::error!("Database error on get_user_by_email: {:?}", err);
             return HttpResponse::InternalServerError().json(AuthResponseError {
                 success: false,
-                message: "User doesn't exist".to_string(),
-            })
-        },
-        Err(_) => {
-            return HttpResponse::InternalServerError().json(AuthResponseError {
-                success: false,
-                message: "Server error, failed to find user".to_string(),
-            })
+                message: "Server error. Please try again later.".to_string(),
+            });
         }
     };
 
     let _id = user._id.clone();
-    let otp = Otp::new(OtpIssued::ForResetPassword,_id);
-    match db.create_otp(otp).await {
-        Ok(_) => {
-            return HttpResponse::Ok().json(OtpGenerationSuccess {
-                success: true,
-                _id
-            })
-        },
-        Err(_) => {
-            return HttpResponse::InternalServerError().json(AuthResponseError {
-                success: false,
-                message: "Server error, please try again".to_string(),
-            })
-        }
+    if let Err(err) = db.delete_otp_by_id(_id.clone()).await {
+        log::error!("Failed to delete old OTP for user {}: {:?}", _id, err);
+        return HttpResponse::InternalServerError().json(AuthResponseError {
+            success: false,
+            message: "Unable to clear previous OTP. Please try again.".to_string(),
+        });
     }
+
+    let otp = Otp::new(OtpIssued::ForResetPassword, _id.clone());
+    let otp_id = otp._id.clone();
+    let otp_secret = otp.secret.clone();
+    if let Err(err) = db.create_otp(otp).await {
+        log::error!("Database error on create_otp: {:?}", err);
+        return HttpResponse::InternalServerError().json(AuthResponseError {
+            success: false,
+            message: "Failed to generate OTP. Please try again.".to_string(),
+        });
+    }
+
+    if let Err(err) = send_email(
+        user.email.clone(),
+        otp_secret,
+        &otp_id.to_string(),
+        OtpIssued::ForResetPassword,
+    ).await {
+        log::error!("Failed to send OTP email to {}: {:?}", user.email, err);
+
+        if let Err(del_err) = db.delete_otp(otp_id).await {
+            log::error!("Failed to cleanup OTP after email failure: {:?}", del_err);
+        }
+
+        return HttpResponse::InternalServerError().json(AuthResponseError {
+            success: false,
+            message: "Failed to send OTP email. Please try again.".to_string(),
+        });
+    }
+
+    HttpResponse::Ok().json(OtpGenerationSuccess {
+        success: true,
+        id: otp_id.to_string(),
+    })
 }
 
 #[post("/api/auth/reset_password")]

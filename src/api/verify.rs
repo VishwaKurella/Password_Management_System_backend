@@ -130,9 +130,10 @@ pub async fn verify_otp(
     user_form: Json<OtpVerificationRequest>,
 ) -> impl Responder {
     let user_form = user_form.into_inner();
-    let user_id = user_form._id.to_string().clone();
-    let user_secret = user_form._id.to_string().clone();
-    let user_id = match ObjectId::parse_str(&user_id) {
+    let otp_id = user_form._id.clone();
+    let user_secret = user_form.secret.clone();
+
+    let otp_id = match ObjectId::parse_str(&otp_id) {
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().json(AuthResponseError {
             success: false,
@@ -140,10 +141,10 @@ pub async fn verify_otp(
         }),
     };
 
-    match db.get_otp_by_id(user_id).await {
+    match db.get_otp_by_id(otp_id).await {
         Ok(Some(otp)) => {
             if otp.verify_secret(user_secret) {
-                if let Err(_) = db.set_otp_verified(user_id).await {
+                if let Err(_) = db.set_otp_verified(otp_id).await {
                     return HttpResponse::InternalServerError().json(AuthResponseError {
                         success: false,
                         message: "Failed to update OTP as verified".into(),
