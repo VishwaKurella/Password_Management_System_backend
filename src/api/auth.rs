@@ -349,7 +349,7 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
             message: "Failed to send OTP email. Please try again.".to_string(),
         });
     }
-
+    println!("the otp id is {}", otp_id);
     HttpResponse::Ok().json(OtpGenerationSuccess {
         success: true,
         id: otp_id.to_string(),
@@ -363,11 +363,23 @@ pub async fn reset_password(db: Data<Database>, user_form: Json<UserResetPasswor
     let otp = match db.get_otp_by_id(user_form._id.clone()).await {
         Ok(Some(otp)) => {
             if otp.is_verified() {
+                let created_ms = otp.created_at.timestamp_millis();
+                let valid_until = DateTime::from_millis(created_ms + 10 * 60 * 1000);
+                let now = DateTime::now();
+
+                if now > valid_until {
+                    let _ = db.delete_otp(otp._id.clone()).await;
+                    return HttpResponse::Unauthorized().json(UserServiceResponse {
+                        success: false,
+                        message: "Password reset link has expired.".to_string(),
+                    });
+                }
                 let salt = User::generate_salt();
                 let password_hash = hash_with_salt(&user_form.password, DEFAULT_COST, &salt).unwrap().to_string();
 
                 match db.set_password(user_form._id, password_hash).await {
                     Ok(_) => {
+                        let _ = db.delete_otp(otp._id.clone()).await;
                         return HttpResponse::Ok().json(UserServiceResponse {
                             success: true,
                             message: "Password reset successfully.".to_string(),
@@ -443,9 +455,9 @@ pub async fn reset_master_key(
     user_form: Json<UserResetMasterKeyRequest>,
 ) -> impl Responder {
     let user_form = user_form.into_inner();
-
+    let user_id = ObjectId::parse_str(user_form._id).unwrap();
     // Retrieve OTP by ID
-    match db.get_otp_by_id(user_form._id).await {
+    match db.get_otp_by_id(user_id.clone()).await {
         Ok(Some(otp)) => {
             if otp.is_verified() {
                 // Attempt to set the master key

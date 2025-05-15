@@ -34,6 +34,7 @@ pub struct Otp{
     pub expires: DateTime,
     pub verified: bool,
     pub issued_for: OtpIssued,
+    pub created_at: DateTime,
 }
 
 impl Otp {
@@ -49,6 +50,7 @@ impl Otp {
             expires,
             verified: false,
             issued_for,
+            created_at: DateTime::now(),
         }
     }
     pub fn generate_secret() -> String {

@@ -141,7 +141,7 @@ pub struct UserServiceResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserResetMasterKeyRequest {
-    pub _id: ObjectId,
+    pub _id: String,
     pub master_key: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
