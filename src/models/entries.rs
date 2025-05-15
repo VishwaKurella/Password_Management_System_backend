@@ -24,6 +24,7 @@ impl Entries {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ReducedEntries {
     pub _id: ObjectId,
     pub data: String,

@@ -12,6 +12,7 @@ pub struct User {
     pub email: String,
     pub password_hash: Option<String>,
     //pub encryption_salt: String,
+    pub salt: String,
     pub verified: bool,
     pub oauth: bool,
     pub master_key: String,
@@ -46,8 +47,7 @@ pub struct User {
 
 impl User {
     pub fn new(name: String, email: String, password: String) -> Self {
-        let salt = Self::generate_salt();
-        let password_hash = hash_with_salt(&password, DEFAULT_COST, &salt).unwrap().to_string();
+        let password_hash = Self::generate_hash(password);
         //let salt_str = encode(&salt);
 
         Self {
@@ -56,6 +56,7 @@ impl User {
             email,
             password_hash: Some(password_hash),
             //encryption_salt: salt_str,
+            salt: String::new(),
             verified: false,
             oauth: false,
             master_key: String::new(),
@@ -70,6 +71,7 @@ impl User {
             name,
             email,
             password_hash: None,
+            salt: String::new(),
             oauth: true,
             verified: true,
             master_key: String::new(),
@@ -87,6 +89,11 @@ impl User {
 
     pub fn is_verified(&self) -> bool {
         self.verified
+    }
+
+    pub fn generate_hash(value: String)-> String {
+        let salt = Self::generate_salt();
+        hash_with_salt(&value, DEFAULT_COST, &salt).unwrap().to_string()
     }
 }
 

@@ -9,7 +9,7 @@ use crate::services::jwt::{generate_jwt, validate_jwt};
 use bcrypt::{hash_with_salt, verify, DEFAULT_COST};
 use chrono::Utc;
 use crate::models::otp::{Otp, OtpGenerationSuccess, OtpIssued, OtpVerificationRequest};
-use crate::models::response::{AuthIssuerResponse, AuthResponseError, AuthResponseSuccess, AuthSignInResponse, AuthSignUpResponse};
+use crate::models::response::{AuthIssuerResponse, AuthResponseError, AuthResponseSuccess, AuthSignInResponse, AuthSignUpResponse, UserSetMasterKeyRequest, UserSetMasterKeyResponse};
 use crate::services::email::send_email;
 
 #[post("/api/auth/signup")]
@@ -462,8 +462,7 @@ pub async fn reset_master_key(
     match db.get_otp_by_id(user_id.clone()).await {
         Ok(Some(otp)) => {
             if otp.is_verified() {
-                // Attempt to set the master key
-                match db.set_master_key(otp.user_id, user_form.master_key).await {
+                match db.set_master_key(otp.user_id, user_form.master_key,"".to_string()).await {
                     Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
                         success: true,
                         message: "Master key reset successfully.".to_string(),
@@ -575,3 +574,60 @@ pub async fn reset_master_key(
 //             issuer: "".to_string(),
 //         })
 // }
+
+
+#[post("/api/auth/set_master_key")]
+pub async fn set_master_key(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    user_form: Json<UserSetMasterKeyRequest>,
+    req: HttpRequest,
+)-> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => return HttpResponse::Unauthorized().json(UserSetMasterKeyResponse {
+            success: false,
+            message: "Unauthorized — please sign in".into(),
+            is_expired: false,
+        }),
+    };
+
+    let claims = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data.claims,
+        Err(_) => return HttpResponse::Unauthorized().json(UserSetMasterKeyResponse {
+            success: false,
+            message: "Invalid or expired token".into(),
+            is_expired: true,
+        }),
+    };
+
+    let user_id = match ObjectId::parse_str(&claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => return HttpResponse::BadRequest().json(UserSetMasterKeyResponse {
+            success: false,
+            message: "Invalid user ID".into(),
+            is_expired: false,
+        }),
+    };
+
+    let user_form = user_form.into_inner();
+    let raw_master_key = user_form.master_key;
+    let salt = user_form.salt;
+    let hashed_master_key = User::generate_hash(raw_master_key);
+    match db.set_master_key(user_id, hashed_master_key, salt).await {
+        Ok(_) => {
+            HttpResponse::Ok().json(UserSetMasterKeyResponse {
+                success: true,
+                message: "Master key set successfully".to_string(),
+                is_expired: false,
+            })
+        },
+        Err(e) => {
+            HttpResponse::InternalServerError().json(UserSetMasterKeyResponse {
+                success: false,
+                message: "Database error updating master key".to_string(),
+                is_expired: false,
+            })
+        }
+    }
+}

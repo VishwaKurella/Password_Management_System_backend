@@ -6,10 +6,10 @@ use actix_web::{App, HttpServer, get, Responder, HttpResponse, post, web::Path, 
 use actix_cors::Cors;
 use env_logger::Env;
 use crate::services::{database::Database};
-use crate::api::{auth::{create_user, signin, authenticate,forgot_password,reset_password,reset_master_key}};
+use crate::api::{auth::{create_user, signin, authenticate,forgot_password,reset_password,reset_master_key,set_master_key}};
 use actix_governor::{Governor, GovernorConfigBuilder};
 use crate::api::request::{user_details,get_issuer_from_cookie};
-use crate::api::verify::{verify_otp,verify_path,allow_otp,verify_me};
+use crate::api::verify::{verify_otp,verify_path,allow_otp,verify_me,verify_master_key};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -48,6 +48,8 @@ async fn main() -> std::io::Result<()> {
             .service(verify_me)
             .service(allow_otp)
             .service(get_issuer_from_cookie)
+            .service(set_master_key)
+            .service(verify_master_key)
             .service(hello)
             .service(hello_name)
     })

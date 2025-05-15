@@ -2,12 +2,12 @@ use actix_web::{get, post, HttpRequest, HttpResponse, Responder};
 use actix_web::web::{Data, Json, Path, Query};
 use mongodb::bson::oid::ObjectId;
 use crate::models::otp::{OtpIssued, OtpVerificationRequest, OtpVerificationResponse};
-use crate::models::response::AuthResponseError;
-use crate::models::users::{UserServiceIdQuery, UserServiceResponse,UserServiceAllowRequest};
+use crate::models::response::{AuthResponseError, UserSetMasterKeyResponse, UserVerifyMasterKeyRequest, UserVerifyMasterKeyResponse};
+use crate::models::users::{UserServiceIdQuery, UserServiceResponse, UserServiceAllowRequest, UserSessionResponse};
 use crate::services::database::Database;
 use crate::services::jwt::{generate_jwt, validate_jwt};
 use actix_web::cookie::{Cookie, SameSite};
-
+use bcrypt::verify;
 // #[post("api/verify/otp")]
 // pub async fn verify_otp(db:Data<Database>,jwt_secret: Data<String>,user_form: Json<OtpVerificationRequest>) -> impl Responder {
 //     let user_form = user_form.into_inner();
@@ -122,8 +122,7 @@ use actix_web::cookie::{Cookie, SameSite};
 //     }
 // }
 
-
-#[post("api/verify/otp")]
+#[post("/api/verify/otp")]
 pub async fn verify_otp(
     db: Data<Database>,
     jwt_secret: Data<String>,
@@ -329,5 +328,209 @@ pub async fn verify_me(db: Data<Database>, jwt_secret: Data<String>, req: HttpRe
             success: false,
             message: "No auth token found.".to_string(),
         }),
+    }
+}
+
+
+// #[get("/api/verify/is_master_key_set")]
+// pub async fn is_master_key_set(db: Data<Database>, req: HttpRequest) -> impl Responder {
+//     let token = match req.cookie("token") {
+//         Some(cookie) => {
+//             cookie.value().to_string()
+//         },
+//         None => {
+//             return HttpResponse::Unauthorized().json(UserSessionResponse {
+//                 success: false,
+//                 message: "Session Expired.".to_string(),
+//                 is_expired: true
+//             })
+//         }
+//     };
+//
+// }
+
+// #[post("/api/verify/master_key")]
+// pub async fn verify_master_key(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserVerifyMasterKeyRequest>) -> impl Responder {
+//     let token = match req.cookie("auth_token") {
+//         Some(c) => c.value().to_string(),
+//         None => return HttpResponse::Unauthorized().json(UserVerifyMasterKeyResponse {
+//             success: false,
+//             message: "Unauthorized: missing authentication token".into(),
+//             is_expired: false,
+//             data: vec![],
+//         }),
+//     };
+//
+//     let claims = match validate_jwt(&token, jwt_secret.get_ref()) {
+//         Ok(data) => data.claims,
+//         Err(_) => return HttpResponse::Unauthorized().json(UserVerifyMasterKeyResponse {
+//             success: false,
+//             message: "Invalid or expired authentication token".into(),
+//             is_expired: true,
+//             data: vec![],
+//         }),
+//     };
+//
+//     let user_id = match ObjectId::parse_str(&claims.sub) {
+//         Ok(oid) => oid,
+//         Err(_) => {
+//             return HttpResponse::BadRequest().json(UserVerifyMasterKeyResponse {
+//                 success: false,
+//                 message: "Invalid user identifier in token".into(),
+//                 is_expired: false,
+//                 data: vec![],
+//             });
+//         }
+//     };
+//
+//     let hashed_master_key = match db.get_user_by_id(user_id).await {\
+//         Ok(Some(user_data)) => user_data.master_key,
+//         Ok(None) => {
+//             return HttpResponse::NotFound().json(UserVerifyMasterKeyResponse {
+//                 success: false,
+//                 message: "User not found".into(),
+//                 is_expired: false,
+//                 data: vec![],
+//             });
+//         }
+//         Err(_) => {
+//             return HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
+//                 success: false,
+//                 message: "Internal server error retrieving user".into(),
+//                 is_expired: false,
+//                 data: vec![],
+//             });
+//         }
+//     }
+//     let user_form = user_form.into_inner();
+//     let master_key = user_form.master_key;
+//
+//     let master_key_matches = match verify(&master_key, &hashed_master_key) {
+//         Ok(matched) if matched => true,
+//         _ => {
+//             return HttpResponse::Forbidden().json(UserVerifyMasterKeyResponse {
+//                 success: false,
+//                 message: "Master key mismatch".into(),
+//                 is_expired: false,
+//                 data: vec![],
+//             })
+//         }
+//     };
+//
+//     match db.get_entries_by_user_id(user_id).await {
+//         Ok(entries) => HttpResponse::Ok().json(UserVerifyMasterKeyResponse {
+//             success: true,
+//             message: "Master key verified".into(),
+//             is_expired: false,
+//             data: entries,
+//         }),
+//         Err(_) => HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
+//             success: false,
+//             message: "Failed to retrieve entries".into(),
+//             is_expired: false,
+//             data: vec![],
+//         }),
+//     }
+// }
+
+#[post("/api/verify/master_key")]
+pub async fn verify_master_key(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    req: HttpRequest,
+    user_form: Json<UserVerifyMasterKeyRequest>,
+) -> impl Responder {
+    println!("{:?}", user_form);
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Unauthorized: missing authentication token".into(),
+                is_expired: false,
+                data: vec![],
+            });
+        }
+    };
+
+    // Step 2: Validate JWT token
+    let claims = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data.claims,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Invalid or expired authentication token".into(),
+                is_expired: true,
+                data: vec![],
+            });
+        }
+    };
+
+    // Step 3: Parse user ID from claims
+    let user_id = match ObjectId::parse_str(&claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Invalid user identifier in token".into(),
+                is_expired: false,
+                data: vec![],
+            });
+        }
+    };
+
+    // Step 4: Retrieve user from DB
+    let hashed_master_key = match db.get_user_by_id(user_id).await {
+        Ok(Some(user_data)) => user_data.master_key,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "User not found".into(),
+                is_expired: false,
+                data: vec![],
+            });
+        }
+        Err(e) => {
+            log::error!("DB error retrieving user: {:?}", e);
+            return HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Internal server error retrieving user".into(),
+                is_expired: false,
+                data: vec![],
+            });
+        }
+    };
+
+    // Step 5: Compare master key
+    let master_key = user_form.into_inner().master_key;
+    match verify(&master_key, &hashed_master_key) {
+        Ok(true) => {} // Proceed
+        Ok(false) | Err(_) => {
+            return HttpResponse::Forbidden().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Master key mismatch".into(),
+                is_expired: false,
+                data: vec![],
+            });
+        }
+    };
+
+    // Step 6: Fetch entries
+    match db.get_entries_by_user_id(user_id).await {
+        Ok(entries) => HttpResponse::Ok().json(UserVerifyMasterKeyResponse {
+            success: true,
+            message: "Master key verified".into(),
+            is_expired: false,
+            data: entries,
+        }),
+        Err(e) => {
+            log::error!("Error fetching entries: {:?}", e);
+            HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
+                success: false,
+                message: "Failed to retrieve entries".into(),
+                is_expired: false,
+                data: vec![],
+            })
+        }
     }
 }

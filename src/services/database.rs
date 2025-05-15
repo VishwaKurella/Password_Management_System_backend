@@ -63,10 +63,16 @@ impl Database {
         Ok(result)
     }
 
-    pub async fn set_master_key(&self,user_id: ObjectId, master_key: String) -> Result<UpdateResult, Error> {
-        let result = self.users.update_one(doc! { "_id": user_id }, doc! { "$set": { "master_key": master_key } }).await?;
+    pub async fn set_master_key(&self,user_id: ObjectId, master_key: String, salt: String) -> Result<UpdateResult, Error> {
+        let result = self.users.update_one(doc! { "_id": user_id }, doc! { "$set": { "master_key": master_key , "salt": salt} }).await?;
         Ok(result)
     }
+
+    // pub async fn get_master_key(&self, user_id: ObjectId) -> Result<Option<String>, Error> {
+    //     let result = self.users.find_one(doc!{"_id": user_id}).await;
+    //     let Ok(Some(user)) = result;
+    //     let master
+    // }
 
     pub async fn set_user_verified(&self, user_id: ObjectId) -> Result<UpdateResult, Error> {
         let result = self.users.update_one(doc!{"_id": user_id}, doc!{"$set": {"verified" : true}}).await?;

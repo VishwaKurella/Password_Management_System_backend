@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::web::Data;
 use mongodb::bson::{oid::ObjectId};
-use crate::models::response::AuthIssuerResponse;
+use crate::models::response::{AuthIssuerResponse, UserDataResponse};
 use crate::models::users::{UserServiceResponse, UserSessionResponse};
 use crate::services::database::Database;
 use crate::services::jwt::validate_jwt;
@@ -101,7 +101,23 @@ async fn user_details(db: Data<Database>, jwt_secret: Data<String>, req: HttpReq
     };
 
     match db.get_user_by_id(user_id.clone()).await {
-        Ok(Some(user)) => HttpResponse::Ok().json(user),
+        Ok(Some(user)) => {
+            let is_master_key_set = if user.master_key == "" {
+                false
+            }else{
+                true
+            };
+            HttpResponse::Ok().json(UserDataResponse {
+                success: true,
+                message: "user data".to_string(),
+                id: user._id.to_string(),
+                name: user.name,
+                email: user.email,
+                salt: user.salt,
+                // is_expired: false,
+                is_master_key_set,
+            })
+        },
         Ok(None) => HttpResponse::NotFound().json(UserSessionResponse {
             success: false,
             message: "User not found".into(),
