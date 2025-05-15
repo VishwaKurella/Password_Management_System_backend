@@ -1,6 +1,7 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
-use actix_web::web::Data;
+use actix_web::web::{Data, Json};
 use mongodb::bson::{oid::ObjectId};
+use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse};
 use crate::models::response::{AuthIssuerResponse, UserDataResponse};
 use crate::models::users::{UserServiceResponse, UserSessionResponse};
 use crate::services::database::Database;
@@ -162,5 +163,68 @@ pub async fn get_issuer_from_cookie(req: HttpRequest, jwt_secret: web::Data<Stri
             message: "auth_token cookie not found".to_string(),
             issuer: "null".to_string(),
         })
+    }
+}
+
+
+#[post("/api/request/create_entries")]
+pub async fn create_entries(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserCreateEntriesRequest>)-> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+                id: "".to_string(),
+            });
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Invalid or expired auth token".into(),
+                is_expired: true,
+                id: "".to_string(),
+            });
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Invalid user ID in token".into(),
+                is_expired: true,
+                id: "".to_string(),
+            });
+        }
+    };
+    let user_form =user_form.into_inner();
+    let data = user_form.data;
+    let nonce = user_form.nonce;
+    let new_entry = Entries::new(user_id,data,nonce);
+    let new_entry_id= new_entry._id.clone().to_string();
+    match db.create_entries(new_entry).await {
+        Ok(_)=>{
+             HttpResponse::Ok().json(UserCreateEntriesResponse {
+                success: true,
+                message: "Entry created successful".to_string(),
+                is_expired: false,
+                 id: new_entry_id
+            })
+        }
+        Err(_)=>{
+            HttpResponse::InternalServerError().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Server Error".to_string(),
+                is_expired: false,
+                id: "".to_string(),
+            })
+        }
     }
 }

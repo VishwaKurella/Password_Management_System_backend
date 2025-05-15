@@ -30,8 +30,21 @@ pub struct ReducedEntries {
     pub data: String,
     pub nonce: String,
 }
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UserEntriesResponse {
     pub success: bool,
     pub entries: Option<Vec<ReducedEntries>>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserCreateEntriesRequest {
+    pub data: String,
+    pub nonce: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserCreateEntriesResponse {
+    pub success: bool,
+    pub message: String,
+    pub is_expired: bool,
+    pub id: String,
 }
