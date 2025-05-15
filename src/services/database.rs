@@ -69,7 +69,7 @@ impl Database {
     }
 
     pub async fn set_user_verified(&self, user_id: ObjectId) -> Result<UpdateResult, Error> {
-        let result = self.users.update_one(doc!{"_id": user_id}, doc!{"set": {"verified" : true}}).await?;
+        let result = self.users.update_one(doc!{"_id": user_id}, doc!{"$set": {"verified" : true}}).await?;
         Ok(result)
     }
 

@@ -160,6 +160,10 @@ pub async fn verify_otp(
                             });
                         }
 
+                        if let Err(_) = db.delete_otp(otp_id).await {
+                            println!("otp for user not deleted");
+                        }
+
                         let token = match generate_jwt(&otp.user_id.to_string(), jwt_secret.get_ref(), "Own") {
                             Ok(token) => token,
                             Err(_) => return HttpResponse::InternalServerError().json(AuthResponseError {
