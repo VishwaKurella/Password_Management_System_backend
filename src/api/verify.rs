@@ -3,7 +3,7 @@ use actix_web::web::{Data, Json, Path, Query};
 use mongodb::bson::oid::ObjectId;
 use crate::models::otp::{OtpIssued, OtpVerificationRequest, OtpVerificationResponse};
 use crate::models::response::AuthResponseError;
-use crate::models::users::{UserServiceIdQuery, UserServiceResponse};
+use crate::models::users::{UserServiceIdQuery, UserServiceResponse,UserServiceAllowRequest};
 use crate::services::database::Database;
 use crate::services::jwt::{generate_jwt, validate_jwt};
 use actix_web::cookie::{Cookie, SameSite};
@@ -227,11 +227,11 @@ pub async fn verify_otp(
 #[get("api/verify/allow/{service}/{id}")]
 pub async fn verify_path(
     db: Data<Database>,
-    service: Path<String>,
-    service_id: Path<String>,
+    user_form: Path<UserServiceAllowRequest>
 ) -> impl Responder {
-    let service = service.into_inner();
-    let service_id = service_id.into_inner();
+    let user_form = user_form.into_inner();
+    let service =user_form.service;
+    let service_id = user_form.id;
     let _id = ObjectId::parse_str(service_id.as_str()).unwrap();
     match db.get_otp_by_id(_id).await {
         Ok(otp_opt) => match otp_opt {

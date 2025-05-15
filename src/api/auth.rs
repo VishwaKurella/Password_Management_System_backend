@@ -244,7 +244,7 @@ pub async fn authenticate(
             }
         }
         Ok(None) => {
-            let new_user = User::new(user.name, user.email,String::new());
+            let new_user = User::new_oauth(user.name, user.email);
             let _id = new_user._id.clone().to_string();
 
             match db.create_user(new_user).await {
@@ -359,25 +359,27 @@ pub async fn forgot_password(db:Data<Database>, email: Json<UsersForgetPassword>
 #[post("/api/auth/reset_password")]
 pub async fn reset_password(db: Data<Database>, user_form: Json<UserResetPassword>) -> impl Responder {
     let user_form = user_form.into_inner();
-
-    let otp = match db.get_otp_by_id(user_form._id.clone()).await {
+    let otp_id = user_form._id;
+    let password = user_form.password;
+    let otp = match db.get_otp_by_id(otp_id).await {
         Ok(Some(otp)) => {
             if otp.is_verified() {
+                let user_id = otp.user_id;
                 let created_ms = otp.created_at.timestamp_millis();
                 let valid_until = DateTime::from_millis(created_ms + 10 * 60 * 1000);
                 let now = DateTime::now();
 
                 if now > valid_until {
-                    let _ = db.delete_otp(otp._id.clone()).await;
+                    let _ = db.delete_otp(otp_id).await;
                     return HttpResponse::Unauthorized().json(UserServiceResponse {
                         success: false,
                         message: "Password reset link has expired.".to_string(),
                     });
                 }
                 let salt = User::generate_salt();
-                let password_hash = hash_with_salt(&user_form.password, DEFAULT_COST, &salt).unwrap().to_string();
+                let password_hash = hash_with_salt(&password, DEFAULT_COST, &salt).unwrap().to_string();
 
-                match db.set_password(user_form._id, password_hash).await {
+                match db.set_password(user_id,password_hash).await {
                     Ok(_) => {
                         let _ = db.delete_otp(otp._id.clone()).await;
                         return HttpResponse::Ok().json(UserServiceResponse {
