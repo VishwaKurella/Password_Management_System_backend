@@ -228,3 +228,127 @@ pub async fn create_entries(db: Data<Database>, jwt_secret: Data<String>, req: H
         }
     }
 }
+
+#[post("/api/request/update_entries")]
+pub async fn update_entries(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    req: HttpRequest,
+    entry: Json<UserUpdateEntryRequest>,
+) -> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Token not found",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Invalid token",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(token_data.claims.sub) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Invalid user ID",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    match db.update_entry(user_id, &entry.id, &entry.data, &entry.nonce).await {
+        Ok(_) => HttpResponse::Ok().json({
+            serde_json::json!({
+                "success": true,
+                "message": "Entry updated"
+            })
+        }),
+        Err(_) => HttpResponse::InternalServerError().json({
+            serde_json::json!({
+                "success": false,
+                "message": "Server error"
+            })
+        }),
+    }
+}
+
+#[post("/api/request/delete_entries")]
+pub async fn delete_entries(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    req: HttpRequest,
+    entry: Json<UserDeleteEntryRequest>,
+) -> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Token not found",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Invalid token",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(token_data.claims.sub) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json({
+                serde_json::json!({
+                    "success": false,
+                    "message": "Invalid user ID",
+                    "is_expired": true
+                })
+            });
+        }
+    };
+
+    match db.delete_entry(user_id, &entry.id).await {
+        Ok(_) => HttpResponse::Ok().json({
+            serde_json::json!({
+                "success": true,
+                "message": "Entry deleted"
+            })
+        }),
+        Err(_) => HttpResponse::InternalServerError().json({
+            serde_json::json!({
+                "success": false,
+                "message": "Server error"
+            })
+        }),
+    }
+}
