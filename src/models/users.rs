@@ -164,3 +164,15 @@ pub struct UserServiceAllowRequest {
     pub service: String,
     pub id: String,
 }
+
+#[derive(Deserialize)]
+pub struct UserUpdateEntryRequest {
+    pub id: String,           // Entry ID to update
+    pub data: String,         // Encrypted data
+    pub nonce: String,        // AES-GCM IV
+}
+
+#[derive(Deserialize)]
+pub struct UserDeleteEntryRequest {
+    pub id: String, // Entry ID
+}
