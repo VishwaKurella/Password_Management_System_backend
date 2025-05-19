@@ -73,3 +73,61 @@ pub struct UserVerifyMasterKeyResponse {
     pub is_expired: bool,
     pub data: Vec<ReducedEntries>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserChangeNameRequest {
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserChangeNameResponse {
+    pub success: bool,
+    pub message: String,
+    pub is_expired: bool,
+}
+
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct UserEmailUpdateRequest {
+//     pub email: String,
+// }
+//
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct UserEmailUpdateResponse {
+//     pub success: bool,
+//     pub message: String,
+//     pub is_expired: bool,
+//     pub id: String,
+// }
+//
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct UserEmailUpdateOtpRequest {
+//     pub secret: String,
+//     pub id: String,
+// }
+//
+// #[derive(Serialize, Deserialize, Debug)]
+// pub struct UserEmailUpdateOtpResponse {
+//     pub success: bool,
+//     pub message: String,
+//     pub is_expired: bool,
+// }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserChangePasswordRequest {
+    pub old_password: String,
+    pub new_password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserChangePasswordResponse {
+    pub success: bool,
+    pub message: String,
+    pub is_expired: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserDeleteResponse {
+    pub success: bool,
+    pub message: String,
+    pub is_expired: bool,
+}

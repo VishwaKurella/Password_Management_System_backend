@@ -1,10 +1,12 @@
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{delete, get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::web::{Data, Json};
+use bcrypt::verify;
 use mongodb::bson::{oid::ObjectId};
-use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse};
-use crate::models::response::{AuthIssuerResponse, UserDataResponse};
-use crate::models::users::{UserServiceResponse, UserSessionResponse};
+use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse, UserDeleteEntriesRequest, UserUpdateEntriesRequest};
+use crate::models::response::{AuthIssuerResponse, AuthResponseError, UserChangeNameRequest, UserChangeNameResponse, UserChangePasswordRequest, UserChangePasswordResponse, UserDataResponse, UserDeleteResponse, UserEmailUpdateOtpResponse, UserEmailUpdateRequest, UserEmailUpdateResponse};
+use crate::models::users::{UserServiceResponse, UserSessionResponse, User};
 use crate::services::database::Database;
+use crate::services::email::send_email;
 use crate::services::jwt::validate_jwt;
 // #[get("/api/request/me")]
 // pub async fn user_details(
@@ -226,5 +228,319 @@ pub async fn create_entries(db: Data<Database>, jwt_secret: Data<String>, req: H
                 id: "".to_string(),
             })
         }
+    }
+}
+
+#[post("/api/request/update_entries")]
+pub async fn update_entries(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserUpdateEntriesRequest>)-> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+                id: "".to_string(),
+            });
+        }
+    };
+
+    if let Err(_) = validate_jwt(&token, jwt_secret.get_ref()) {
+        return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+            success: false,
+            message: "Invalid or expired auth token".into(),
+            is_expired: true,
+            id: "".to_string(),
+        });
+    };
+
+    let user_form = user_form.into_inner();
+    let entry_id = match ObjectId::parse_str(user_form.id) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserSessionResponse {
+                success: false,
+                message: "Invalid entry ID".into(),
+                is_expired: false,
+            });
+        }
+    };
+    let data = user_form.data;
+    let nonce = user_form.nonce;
+
+    match db.update_entries(entry_id, data, nonce).await {
+        Ok(_)=>{
+            HttpResponse::Ok().json(UserSessionResponse {
+                success: true,
+                message: "Entry updated successfully".into(),
+                is_expired: false,
+            })
+        }
+        Err(_)=>{
+            HttpResponse::InternalServerError().json(UserSessionResponse {
+                success: false,
+                message: "Server error while updating entry".into(),
+                is_expired: false,
+            })
+        }
+    }
+}
+
+#[post("/api/request/delete_entries")]
+pub async fn delete_entries(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserDeleteEntriesRequest>)->impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+                id: "".to_string(),
+            });
+        }
+    };
+
+    if let Err(_) = validate_jwt(&token, jwt_secret.get_ref()) {
+        return HttpResponse::Unauthorized().json(UserCreateEntriesResponse {
+            success: false,
+            message: "Invalid or expired auth token".into(),
+            is_expired: true,
+            id: "".to_string(),
+        });
+    };
+
+    let user_form = user_form.into_inner();
+    let user_id = user_form.id;
+    let entry_id = match ObjectId::parse_str(user_id) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserSessionResponse {
+                success: false,
+                message: "Invalid entry ID".into(),
+                is_expired: false,
+            });
+        }
+    };
+    match db.delete_entries(entry_id).await {
+        Ok(_)=>{
+             HttpResponse::Ok().json(UserSessionResponse {
+                success: true,
+                message: "Entry Deleted successfully".into(),
+                is_expired: false,
+            })
+        }
+        Err(_)=>{
+            HttpResponse::InternalServerError().json(UserSessionResponse {
+                success: false,
+                message: "Server error while deleting entry".into(),
+                is_expired: false,
+            })
+        }
+    }
+}
+
+#[post("/api/request/change_name")]
+pub async fn change_name(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserChangeNameRequest>)->impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserChangeNameResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+            });
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserChangeNameResponse {
+                success: false,
+                message: "Invalid or expired auth token".into(),
+                is_expired: true,
+            });
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserChangeNameResponse {
+                success: false,
+                message: "Invalid user ID in token".into(),
+                is_expired: true,
+            });
+        }
+    };
+    let user_form = user_form.into_inner();
+    let name = user_form.name;
+    match db.set_user_name(user_id, name).await {
+        Ok(_)=>{
+            HttpResponse::Ok().json(UserChangeNameResponse {
+                success: true,
+                message: "Name updated successfully".to_string(),
+                is_expired: false,
+            })
+        }
+        Err(_)=>{
+            HttpResponse::InternalServerError().json(UserChangeNameResponse {
+                success: false,
+                message: "Server error".to_string(),
+                is_expired: false,
+            })
+        }
+    }
+}
+
+
+#[post("/api/user/change_password")]
+pub async fn change_password(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    req: HttpRequest,
+    user_form: Json<UserChangePasswordRequest>,
+) -> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserChangePasswordResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+            })
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserChangePasswordResponse {
+                success: false,
+                message: "Invalid or expired auth token".into(),
+                is_expired: true,
+            })
+        }
+    };
+    let user_id = match ObjectId::parse_str(&token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserChangePasswordResponse {
+                success: false,
+                message: "Invalid user ID in token".into(),
+                is_expired: false,
+            })
+        }
+    };
+    let user_form = user_form.into_inner();
+    let old_password = user_form.old_password;
+    let new_password = user_form.new_password;
+    let current_password = match db.get_user_by_id(user_id).await?{
+        Some(u) => {
+            if let Some(current_password) = u.password_hash {
+                current_password
+            } else {
+                return HttpResponse::Unauthorized().json(UserChangePasswordResponse {
+                    success: false,
+                    message: "Unauthorized".to_string(),
+                    is_expired: false,
+                })
+            }
+        },
+        None => {
+            return HttpResponse::InternalServerError().json(UserChangePasswordResponse {
+                success: false,
+                message: "Unauthorised".to_string(),
+                is_expired: true
+            })
+        }
+    };
+
+    let password_matches = match verify(&current_password, &old_password){
+        Ok(matched) if matched => true,
+        _ => {
+            return HttpResponse::Unauthorized().json(UserChangePasswordResponse {
+                success: false,
+                message: "Invalid credentials".to_string(),
+                is_expired: false,
+            });
+        }
+    };
+
+    let new_password_hash = User::generate_hash(new_password);
+
+    match db.set_password(user_id, new_password_hash).await {
+        Ok(_) => HttpResponse::Ok().json(UserChangePasswordResponse {
+            success: true,
+            message: "Password updated successfully".into(),
+            is_expired: false,
+        }),
+        Err(_) => HttpResponse::InternalServerError().json(UserChangePasswordResponse {
+            success: false,
+            message: "Server error".into(),
+            is_expired: false,
+        }),
+    }
+}
+
+
+
+#[delete("/api/user/delete_account")]
+pub async fn delete_account(
+    db: Data<Database>,
+    jwt_secret: Data<String>,
+    req: HttpRequest,
+) -> impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserDeleteResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+            })
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserDeleteResponse {
+                success: false,
+                message: "Invalid or expired auth token".into(),
+                is_expired: true,
+            })
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(&token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserDeleteResponse {
+                success: false,
+                message: "Invalid user ID in token".into(),
+                is_expired: false,
+            })
+        }
+    };
+
+    if let Err(_) =  db.delete_entries_by_user_id(user_id).await {
+        return HttpResponse::InternalServerError().json(UserDeleteResponse {
+            success: false,
+            message: "Server error".into(),
+            is_expired: false,
+        })
+    };
+    match db.delete_user_by_id(user_id).await {
+        Ok(_) => HttpResponse::Ok().json(UserDeleteResponse {
+            success: true,
+            message: "Account deleted successfully".into(),
+            is_expired: false,
+        }),
+        Err(_) => HttpResponse::InternalServerError().json(UserDeleteResponse {
+            success: false,
+            message: "Server error".into(),
+            is_expired: false,
+        }),
     }
 }

@@ -86,6 +86,11 @@ impl Database {
         }
     }
 
+    pub async fn set_user_name(&self, user_id: ObjectId, name: String) -> Result<UpdateResult, Error> {
+        let result = self.users.update_one(doc!{"_id": user_id}, doc!{"$set": {"name": name}}).await;
+        result
+    }
+
     pub async fn create_entries(&self, entry: Entries) -> Result<InsertOneResult, Error> {
         let result = self.entries.insert_one(entry).await;
         result
@@ -101,10 +106,8 @@ impl Database {
         result
     }
 
-    pub async fn update_entries(&self, entries_id: ObjectId, entries: Entries) -> Result<UpdateResult, Error> {
-        let mut entries_document = to_document(&entries)?;
-        entries_document.remove("_id");
-        let result = self.entries.update_one(doc!{"_id": entries_id},doc!{"$set": entries_document}).await;
+    pub async fn update_entries(&self, entries_id: ObjectId, data: String, nonce: String) -> Result<UpdateResult, Error> {
+        let result = self.entries.update_one(doc!{"_id": entries_id},doc!{"$set": {"data": data, "nonce": nonce}}).await;
         result
     }
 
@@ -141,6 +144,11 @@ impl Database {
 
     pub async fn set_otp_verified(&self, otp_id: ObjectId) -> Result<UpdateResult, Error> {
         let result = self.otps.update_one(doc!{"_id": otp_id}, doc! { "$set": { "verified": true }}).await;
+        result
+    }
+
+    pub async fn delete_entries_by_user_id(&self, user_id: ObjectId) -> Result<DeleteResult, Error> {
+        let result = self.entries.delete_many(doc!{"user_id": user_id}).await;
         result
     }
 }

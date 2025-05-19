@@ -451,51 +451,51 @@ pub async fn reset_password(db: Data<Database>, user_form: Json<UserResetPasswor
 //     }
 // }
 
-#[post("/api/auth/reset_master_key")]
-pub async fn reset_master_key(
-    db: Data<Database>,
-    user_form: Json<UserResetMasterKeyRequest>,
-) -> impl Responder {
-    let user_form = user_form.into_inner();
-    let user_id = ObjectId::parse_str(user_form._id).unwrap();
-    // Retrieve OTP by ID
-    match db.get_otp_by_id(user_id.clone()).await {
-        Ok(Some(otp)) => {
-            if otp.is_verified() {
-                match db.set_master_key(otp.user_id, user_form.master_key,"".to_string()).await {
-                    Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
-                        success: true,
-                        message: "Master key reset successfully.".to_string(),
-                    }),
-                    Err(e) => {
-                        log::error!("Failed to update master key: {}", e);
-                        HttpResponse::InternalServerError().json(UserServiceResponse {
-                            success: false,
-                            message: "Failed to update master key.".to_string(),
-                        })
-                    }
-                }
-            } else {
-                HttpResponse::Unauthorized().json(UserServiceResponse {
-                    success: false,
-                    message: "OTP not verified.".to_string(),
-                })
-            }
-        }
-        Ok(None) => HttpResponse::NotFound().json(UserServiceResponse {
-            success: false,
-            message: "OTP record not found.".to_string(),
-        }),
-        Err(e) => {
-            log::error!("Database error while retrieving OTP: {}", e);
-            HttpResponse::InternalServerError().json(UserServiceResponse {
-                success: false,
-                message: "Database error while retrieving OTP.".to_string(),
-            })
-        }
-    }
-}
-
+// #[post("/api/auth/reset_master_key")]
+// pub async fn reset_master_key(
+//     db: Data<Database>,
+//     user_form: Json<UserResetMasterKeyRequest>,
+// ) -> impl Responder {
+//     let user_form = user_form.into_inner();
+//     let user_id = ObjectId::parse_str(user_form._id).unwrap();
+//     // Retrieve OTP by ID
+//     match db.get_otp_by_id(user_id.clone()).await {
+//         Ok(Some(otp)) => {
+//             if otp.is_verified() {
+//                 match db.set_master_key(otp.user_id, user_form.master_key,"".to_string()).await {
+//                     Ok(_) => HttpResponse::Ok().json(UserServiceResponse {
+//                         success: true,
+//                         message: "Master key reset successfully.".to_string(),
+//                     }),
+//                     Err(e) => {
+//                         log::error!("Failed to update master key: {}", e);
+//                         HttpResponse::InternalServerError().json(UserServiceResponse {
+//                             success: false,
+//                             message: "Failed to update master key.".to_string(),
+//                         })
+//                     }
+//                 }
+//             } else {
+//                 HttpResponse::Unauthorized().json(UserServiceResponse {
+//                     success: false,
+//                     message: "OTP not verified.".to_string(),
+//                 })
+//             }
+//         }
+//         Ok(None) => HttpResponse::NotFound().json(UserServiceResponse {
+//             success: false,
+//             message: "OTP record not found.".to_string(),
+//         }),
+//         Err(e) => {
+//             log::error!("Database error while retrieving OTP: {}", e);
+//             HttpResponse::InternalServerError().json(UserServiceResponse {
+//                 success: false,
+//                 message: "Database error while retrieving OTP.".to_string(),
+//             })
+//         }
+//     }
+// }
+//
 
 // #[get("/api/auth/logout")]
 // pub async fn logout(req: HttpRequest, jwt_secret: web::Data<String>) -> impl Responder {

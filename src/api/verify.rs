@@ -191,11 +191,12 @@ pub async fn verify_otp(
                         message: "otp verified for password reset".into(),
                         issued_for: OtpIssued::ForResetPassword,
                     }),
-                    OtpIssued::ForResetMasterKey => HttpResponse::Ok().json(OtpVerificationResponse {
+                    OtpIssued::ForEmailUpdate => {
+                        HttpResponse::Ok().json(OtpVerificationResponse {
                         success: true,
                         message: "otp verified for master key reset".into(),
-                        issued_for: OtpIssued::ForResetMasterKey,
-                    }),
+                        issued_for: OtpIssued::ForEmailUpdate,
+                    })},
                     OtpIssued::Invalid => HttpResponse::Ok().json(OtpVerificationResponse {
                         success: false,
                         message: "Invalid OTP context".into(),

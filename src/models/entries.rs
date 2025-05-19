@@ -48,3 +48,15 @@ pub struct UserCreateEntriesResponse {
     pub is_expired: bool,
     pub id: String,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserUpdateEntriesRequest {
+    pub id: String,
+    pub data: String,
+    pub nonce: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserDeleteEntriesRequest {
+    pub id: String,
+}

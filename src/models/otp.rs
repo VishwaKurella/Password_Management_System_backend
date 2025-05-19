@@ -9,7 +9,7 @@ use std::fmt;
 pub enum OtpIssued {
     ForResetPassword,
     ForEmailVerification,
-    ForResetMasterKey,
+    ForEmailUpdate,
     Invalid
 }
 
@@ -18,7 +18,7 @@ impl fmt::Display for OtpIssued {
         let text = match self {
             OtpIssued::ForEmailVerification => "Email Verification",
             OtpIssued::ForResetPassword => "Password Reset",
-            OtpIssued::ForResetMasterKey => "Master Key Reset",
+            OtpIssued::ForEmailUpdate => "Email Update",
             OtpIssued::Invalid => "Invalid",
 
         };

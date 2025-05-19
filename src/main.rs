@@ -8,7 +8,7 @@ use env_logger::Env;
 use crate::services::{database::Database};
 use crate::api::{auth::{create_user, signin, authenticate,forgot_password,reset_password,reset_master_key,set_master_key}};
 use actix_governor::{Governor, GovernorConfigBuilder};
-use crate::api::request::{user_details,get_issuer_from_cookie};
+use crate::api::request::{user_details,get_issuer_from_cookie,create_entries,change_password};
 use crate::api::verify::{verify_otp,verify_path,allow_otp,verify_me,verify_master_key};
 
 #[actix_web::main]
@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
             .service(signin)
             .service(authenticate)
             .service(user_details)
-            .service(reset_master_key)
+            .service(change_password)
             .service(reset_password)
             .service(forgot_password)
             .service(verify_path)
@@ -50,6 +50,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_issuer_from_cookie)
             .service(set_master_key)
             .service(verify_master_key)
+            .service(create_entries)
             .service(hello)
             .service(hello_name)
     })
