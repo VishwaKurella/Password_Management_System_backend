@@ -26,14 +26,16 @@ impl Entries {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ReducedEntries {
-    pub _id: ObjectId,
+    pub id: String,
     pub data: String,
     pub nonce: String,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserEntriesResponse {
     pub success: bool,
-    pub entries: Option<Vec<ReducedEntries>>,
+    pub message: String,
+    pub entries: Vec<ReducedEntries>,
+    pub is_expired: bool,
 }
 #[derive(Serialize, Deserialize, Debug)]
 pub struct UserCreateEntriesRequest {
@@ -60,3 +62,9 @@ pub struct UserUpdateEntriesRequest {
 pub struct UserDeleteEntriesRequest {
     pub id: String,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserEntriesRequest {
+    pub master_key: String,
+}
+

@@ -441,7 +441,6 @@ pub async fn verify_master_key(
     req: HttpRequest,
     user_form: Json<UserVerifyMasterKeyRequest>,
 ) -> impl Responder {
-    println!("{:?}", user_form);
     let token = match req.cookie("auth_token") {
         Some(c) => c.value().to_string(),
         None => {
@@ -449,12 +448,10 @@ pub async fn verify_master_key(
                 success: false,
                 message: "Unauthorized: missing authentication token".into(),
                 is_expired: false,
-                data: vec![],
+                //data: vec![],
             });
         }
     };
-
-    // Step 2: Validate JWT token
     let claims = match validate_jwt(&token, jwt_secret.get_ref()) {
         Ok(data) => data.claims,
         Err(_) => {
@@ -462,12 +459,10 @@ pub async fn verify_master_key(
                 success: false,
                 message: "Invalid or expired authentication token".into(),
                 is_expired: true,
-                data: vec![],
+                //data: vec![],
             });
         }
     };
-
-    // Step 3: Parse user ID from claims
     let user_id = match ObjectId::parse_str(&claims.sub) {
         Ok(oid) => oid,
         Err(_) => {
@@ -475,12 +470,10 @@ pub async fn verify_master_key(
                 success: false,
                 message: "Invalid user identifier in token".into(),
                 is_expired: false,
-                data: vec![],
+                //data: vec![],
             });
         }
     };
-
-    // Step 4: Retrieve user from DB
     let hashed_master_key = match db.get_user_by_id(user_id).await {
         Ok(Some(user_data)) => user_data.master_key,
         Ok(None) => {
@@ -488,7 +481,7 @@ pub async fn verify_master_key(
                 success: false,
                 message: "User not found".into(),
                 is_expired: false,
-                data: vec![],
+                //data: vec![],
             });
         }
         Err(e) => {
@@ -497,41 +490,45 @@ pub async fn verify_master_key(
                 success: false,
                 message: "Internal server error retrieving user".into(),
                 is_expired: false,
-                data: vec![],
+                //data: vec![],
             });
         }
     };
-
-    // Step 5: Compare master key
     let master_key = user_form.into_inner().master_key;
     match verify(&master_key, &hashed_master_key) {
-        Ok(true) => {} // Proceed
+        Ok(true) => {
+            return HttpResponse::Ok().json(UserVerifyMasterKeyResponse {
+            success: true,
+            message: "Master key verified".into(),
+            is_expired: false,
+            //data: entries,
+        })},
         Ok(false) | Err(_) => {
             return HttpResponse::Forbidden().json(UserVerifyMasterKeyResponse {
                 success: false,
                 message: "Master key mismatch".into(),
                 is_expired: false,
-                data: vec![],
+                //data: vec![],
             });
         }
     };
 
-    // Step 6: Fetch entries
-    match db.get_entries_by_user_id(user_id).await {
-        Ok(entries) => HttpResponse::Ok().json(UserVerifyMasterKeyResponse {
-            success: true,
-            message: "Master key verified".into(),
-            is_expired: false,
-            data: entries,
-        }),
-        Err(e) => {
-            log::error!("Error fetching entries: {:?}", e);
-            HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
-                success: false,
-                message: "Failed to retrieve entries".into(),
-                is_expired: false,
-                data: vec![],
-            })
-        }
-    }
+    // match db.get_entries_by_user_id(user_id).await {
+    //     Ok(entries) =>
+    //         HttpResponse::Ok().json(UserVerifyMasterKeyResponse {
+    //         success: true,
+    //         message: "Master key verified".into(),
+    //         is_expired: false,
+    //         //data: entries,
+    //     }),
+    //     Err(e) => {
+    //         log::error!("Error fetching entries: {:?}", e);
+    //         HttpResponse::InternalServerError().json(UserVerifyMasterKeyResponse {
+    //             success: false,
+    //             message: "Failed to retrieve entries".into(),
+    //             is_expired: false,
+    //             //data: vec![],
+    //         })
+    //     }
+    // }
 }

@@ -8,7 +8,7 @@ use env_logger::Env;
 use crate::services::{database::Database};
 use crate::api::{auth::{create_user, signin, authenticate,forgot_password,reset_password,set_master_key}};
 use actix_governor::{Governor, GovernorConfigBuilder};
-use crate::api::request::{user_details, get_issuer_from_cookie, create_entries, change_password, change_name, delete_account};
+use crate::api::request::{user_details, get_issuer_from_cookie, create_entries, change_password, change_name, delete_account, get_entries, delete_entries,update_entries };
 use crate::api::verify::{verify_otp,verify_path,allow_otp,verify_me,verify_master_key};
 
 #[actix_web::main]
@@ -29,7 +29,7 @@ async fn main() -> std::io::Result<()> {
                 Cors::default()
                     .allowed_origin("http://localhost:3000")
                     .supports_credentials()
-                    .allowed_methods(vec!["POST", "GET", "OPTIONS"])
+                    .allowed_methods(vec!["POST", "GET",  "DELETE", "PUT","OPTIONS"])
                     .allowed_headers(vec![http::header::CONTENT_TYPE])
             )
             .app_data(data.clone())
@@ -51,6 +51,9 @@ async fn main() -> std::io::Result<()> {
             .service(set_master_key)
             .service(verify_master_key)
             .service(create_entries)
+            .service(get_entries)
+            .service(delete_entries)
+            .service(update_entries)
             .service(delete_account)
             .service(change_name)
             .service(hello)

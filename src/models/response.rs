@@ -71,7 +71,7 @@ pub struct UserVerifyMasterKeyResponse {
     pub success: bool,
     pub message: String,
     pub is_expired: bool,
-    pub data: Vec<ReducedEntries>,
+    //pub data: Vec<ReducedEntries>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -131,3 +131,10 @@ pub struct UserDeleteResponse {
     pub message: String,
     pub is_expired: bool,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UserEntriesRequest {
+    pub master_key: String,
+}
+
+

@@ -115,7 +115,7 @@ impl Database {
         let result = self.entries.find(doc! {"user_id": user_id}).await?;
         let entries = result.try_collect::<Vec<Entries>>().await?;
         let reduced_entries = entries.into_iter().map(|e| ReducedEntries {
-            _id: e._id,
+            id: e._id.to_string(),
             data: e.data,
             nonce: e.nonce,
         }).collect();

@@ -1,9 +1,9 @@
-use actix_web::{delete, get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse, Responder};
 use actix_web::web::{Data, Json};
 use bcrypt::verify;
 use mongodb::bson::{oid::ObjectId};
-use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse, UserDeleteEntriesRequest, UserUpdateEntriesRequest};
-use crate::models::response::{AuthIssuerResponse, AuthResponseError, UserChangeNameRequest, UserChangeNameResponse, UserChangePasswordRequest, UserChangePasswordResponse, UserDataResponse, UserDeleteResponse};
+use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse, UserDeleteEntriesRequest, UserEntriesRequest, UserEntriesResponse, UserUpdateEntriesRequest};
+use crate::models::response::{AuthIssuerResponse, AuthResponseError, UserChangeNameRequest, UserChangeNameResponse, UserChangePasswordRequest, UserChangePasswordResponse, UserDataResponse, UserDeleteResponse, UserVerifyMasterKeyResponse};
 use crate::models::users::{UserServiceResponse, UserSessionResponse, User};
 use crate::services::database::Database;
 use crate::services::email::send_email;
@@ -124,12 +124,12 @@ async fn user_details(db: Data<Database>, jwt_secret: Data<String>, req: HttpReq
         Ok(None) => HttpResponse::NotFound().json(UserSessionResponse {
             success: false,
             message: "User not found".into(),
-            is_expired: false,
+            is_expired: true,
         }),
         Err(_) => HttpResponse::InternalServerError().json(UserSessionResponse {
             success: false,
             message: "Database error while fetching user".into(),
-            is_expired: false,
+            is_expired: true,
         }),
     }
 }
@@ -231,7 +231,7 @@ pub async fn create_entries(db: Data<Database>, jwt_secret: Data<String>, req: H
     }
 }
 
-#[post("/api/request/update_entries")]
+#[put("/api/request/update_entries")]
 pub async fn update_entries(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserUpdateEntriesRequest>)-> impl Responder {
     let token = match req.cookie("auth_token") {
         Some(c) => c.value().to_string(),
@@ -286,7 +286,7 @@ pub async fn update_entries(db: Data<Database>, jwt_secret: Data<String>, req: H
     }
 }
 
-#[post("/api/request/delete_entries")]
+#[delete("/api/request/delete_entries")]
 pub async fn delete_entries(db: Data<Database>, jwt_secret: Data<String>, req: HttpRequest, user_form: Json<UserDeleteEntriesRequest>)->impl Responder {
     let token = match req.cookie("auth_token") {
         Some(c) => c.value().to_string(),
@@ -394,7 +394,7 @@ pub async fn change_name(db: Data<Database>, jwt_secret: Data<String>, req: Http
 }
 
 
-#[post("/api/user/change_password")]
+#[post("/api/request/change_password")]
 pub async fn change_password(
     db: Data<Database>,
     jwt_secret: Data<String>,
@@ -485,7 +485,7 @@ pub async fn change_password(
 
 
 
-#[delete("/api/user/delete_account")]
+#[delete("/api/request/delete_account")]
 pub async fn delete_account(
     db: Data<Database>,
     jwt_secret: Data<String>,
@@ -542,5 +542,96 @@ pub async fn delete_account(
             message: "Server error".into(),
             is_expired: false,
         }),
+    }
+}
+
+
+#[post("/api/request/get_entries")]
+pub async fn get_entries(db: Data<Database>, jwt_secret: Data<String>, user_form: Json<UserEntriesRequest>, req: HttpRequest)->impl Responder {
+    let token = match req.cookie("auth_token") {
+        Some(c) => c.value().to_string(),
+        None => {
+            return HttpResponse::Unauthorized().json(UserEntriesResponse {
+                success: false,
+                message: "Could not find token".to_string(),
+                is_expired: true,
+                entries: Vec::new(),
+            })
+        }
+    };
+
+    let token_data = match validate_jwt(&token, jwt_secret.get_ref()) {
+        Ok(data) => data,
+        Err(_) => {
+            return HttpResponse::Unauthorized().json(UserEntriesResponse {
+                success: false,
+                message: "Invalid or expired auth token".into(),
+                is_expired: true,
+                entries: Vec::new(),
+            })
+        }
+    };
+
+    let user_id = match ObjectId::parse_str(&token_data.claims.sub) {
+        Ok(oid) => oid,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(UserEntriesResponse {
+                success: false,
+                message: "Invalid user ID in token".into(),
+                is_expired: false,
+                entries: Vec::new(),
+            })
+        }
+    };
+
+    let hashed_master_key = match db.get_user_by_id(user_id).await {
+        Ok(Some(user_data)) => user_data.master_key,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(UserEntriesResponse {
+                success: false,
+                message: "User not found".into(),
+                is_expired: false,
+                entries: Vec::new(),
+            });
+        }
+        Err(e) => {
+            log::error!("DB error retrieving user: {:?}", e);
+            return HttpResponse::InternalServerError().json(UserEntriesResponse {
+                success: false,
+                message: "Internal server error retrieving user".into(),
+                is_expired: false,
+                entries: Vec::new(),
+            });
+        }
+    };
+    let master_key = user_form.into_inner().master_key;
+    match verify(&master_key, &hashed_master_key) {
+        Ok(true) => {}
+        Ok(false) | Err(_) => {
+            return HttpResponse::Forbidden().json(UserEntriesResponse {
+                success: false,
+                message: "Master key mismatch".into(),
+                is_expired: false,
+                entries: Vec::new(),
+            });
+        }
+    };
+    match db.get_entries_by_user_id(user_id).await {
+        Ok(entries) =>
+            HttpResponse::Ok().json(UserEntriesResponse {
+            success: true,
+            message: "Master key verified".into(),
+            is_expired: false,
+            entries,
+        }),
+        Err(e) => {
+            log::error!("Error fetching entries: {:?}", e);
+            HttpResponse::InternalServerError().json(UserEntriesResponse {
+                success: false,
+                message: "Failed to retrieve entries".into(),
+                is_expired: false,
+                entries: Vec::new(),
+            })
+        }
     }
 }
