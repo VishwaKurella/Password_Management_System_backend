@@ -14,7 +14,7 @@ use crate::api::verify::{verify_otp,verify_path,allow_otp,verify_me,verify_maste
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("debug"));
-    let port = dotenv::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let port = dotenv::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let db = Database::init().await;
     let data = web::Data::new(db);
     let jwt_secret = dotenv::var("JWT_SECRET").expect("DATABASE_URL must be set");
