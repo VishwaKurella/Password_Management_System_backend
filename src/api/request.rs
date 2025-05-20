@@ -3,7 +3,7 @@ use actix_web::web::{Data, Json};
 use bcrypt::verify;
 use mongodb::bson::{oid::ObjectId};
 use crate::models::entries::{Entries, UserCreateEntriesRequest, UserCreateEntriesResponse, UserDeleteEntriesRequest, UserUpdateEntriesRequest};
-use crate::models::response::{AuthIssuerResponse, AuthResponseError, UserChangeNameRequest, UserChangeNameResponse, UserChangePasswordRequest, UserChangePasswordResponse, UserDataResponse, UserDeleteResponse, UserEmailUpdateOtpResponse, UserEmailUpdateRequest, UserEmailUpdateResponse};
+use crate::models::response::{AuthIssuerResponse, AuthResponseError, UserChangeNameRequest, UserChangeNameResponse, UserChangePasswordRequest, UserChangePasswordResponse, UserDataResponse, UserDeleteResponse};
 use crate::models::users::{UserServiceResponse, UserSessionResponse, User};
 use crate::services::database::Database;
 use crate::services::email::send_email;
@@ -435,8 +435,8 @@ pub async fn change_password(
     let user_form = user_form.into_inner();
     let old_password = user_form.old_password;
     let new_password = user_form.new_password;
-    let current_password = match db.get_user_by_id(user_id).await?{
-        Some(u) => {
+    let current_password = match db.get_user_by_id(user_id).await{
+        Ok(Some(u)) => {
             if let Some(current_password) = u.password_hash {
                 current_password
             } else {
@@ -447,7 +447,7 @@ pub async fn change_password(
                 })
             }
         },
-        None => {
+        _ => {
             return HttpResponse::InternalServerError().json(UserChangePasswordResponse {
                 success: false,
                 message: "Unauthorised".to_string(),
