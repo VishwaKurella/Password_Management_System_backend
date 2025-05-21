@@ -173,7 +173,7 @@ pub async fn verify_otp(
 
                         let cookie = Cookie::build("auth_token", token)
                             .http_only(true)
-                            .secure(false)
+                            .secure(true)
                             .same_site(SameSite::Lax)
                             .path("/")
                             .finish();

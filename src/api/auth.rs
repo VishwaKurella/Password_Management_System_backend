@@ -156,7 +156,7 @@ pub async fn signin(
         Ok(token) => {
             let cookie = Cookie::build("auth_token", token)
                 .http_only(true)
-                .secure(false)
+                .secure(true)
                 .same_site(SameSite::Lax)
                 .path("/")
                 .finish();
@@ -223,7 +223,7 @@ pub async fn authenticate(
                 Ok(token) => {
                     let cookie = Cookie::build("auth_token", token)
                         .http_only(true)
-                        .secure(false)
+                        .secure(true)
                         .same_site(SameSite::Lax)
                         .path("/")
                         .finish();
@@ -253,7 +253,7 @@ pub async fn authenticate(
                         Ok(token) => {
                             let cookie = Cookie::build("auth_token", token)
                                 .http_only(true)
-                                .secure(false)
+                                .secure(true)
                                 .same_site(SameSite::Lax)
                                 .path("/")
                                 .finish();
